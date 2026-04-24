@@ -32,6 +32,7 @@ class Property(BaseModel):
     facilities: list[str] = []
     nearbyPlaces: list[str] = []
     agent: PropertyAgent = Field(default_factory=PropertyAgent)
+    description: str = ""
     status: PropertyStatus = PropertyStatus.none
     source: str = ""
     addedAt: datetime = Field(default_factory=datetime.utcnow)

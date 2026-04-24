@@ -22,6 +22,7 @@ export interface Property {
   facilities: string[];
   nearbyPlaces: string[];
   agent: PropertyAgent;
+  description?: string;
   status: PropertyStatus;
   source?: string;
   addedAt: string;

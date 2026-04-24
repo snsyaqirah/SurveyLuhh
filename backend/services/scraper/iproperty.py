@@ -1,4 +1,4 @@
-"""iProperty Malaysia scraper."""
+"""iProperty Malaysia scraper — __NEXT_DATA__ primary, DOM/regex fallback."""
 import re
 import json
 import time
@@ -14,78 +14,81 @@ def scrape(url: str) -> dict:
         wait_for(driver, "h1", timeout=15)
         time.sleep(2)
 
-        # ── Price ──────────────────────────────────────────────────────────
-        # Try specific element first (most reliable), then regex
-        price = ""
-        for sel in ["[da-id='listing-price']", "[class*='listing-price']",
-                    "[class*='Price']", ".price"]:
-            v = safe_text(driver, sel)
-            if v and "RM" in v:
-                price = v.strip()
-                break
-        if not price:
-            soup_price = BeautifulSoup(driver.page_source, "html.parser")
-            # require 3+ digit chars so "RM 0.81 psf" (1 digit before decimal) is skipped
-            m = re.search(r'RM\s*[\d,]{3,}(?:\s*/\s*\w+)?',
-                          driver.find_element(By.TAG_NAME, "body").text)
-            if m:
-                price = m.group(0).strip()
+        soup = BeautifulSoup(driver.page_source, "html.parser")
+
+        # ── Primary: extract from Next.js __NEXT_DATA__ JSON ───────────────
+        nd = _from_next_data(soup)
+
+        title        = nd.get("title") or safe_text(driver, "h1")
+        price        = nd.get("price") or _scrape_price(driver)
+        bedrooms     = nd.get("bedrooms", 0)
+        bathrooms    = nd.get("bathrooms", 0)
+        sqft         = nd.get("sqft", "")
+        parking      = nd.get("parking", 0)
+        facilities   = nd.get("facilities", [])
+        description  = nd.get("description", "")
+        agent_name   = nd.get("agentName", "")
+        agent_phone  = nd.get("agentPhone", "")
 
         # ── Images ─────────────────────────────────────────────────────────
-        soup = BeautifulSoup(driver.page_source, "html.parser")
         images: list[str] = []
         for img in soup.find_all("img"):
             src = img.get("data-src") or img.get("src") or ""
             if _is_listing_image(src):
                 images.append(src)
+        # Also grab from preload hints — highest quality
+        for link in soup.find_all("link", rel="preload", as_="image"):
+            href = link.get("href", "")
+            if _is_listing_image(href):
+                images.insert(0, href)
         images = _dedup(images)[:20]
 
-        # ── Beds / Baths — target the stats elements directly ───────────────
-        bedrooms = _stat_from_label(driver, "Beds", "Bed")
-        bathrooms = _stat_from_label(driver, "Baths", "Bath")
-        parking = _stat_from_label(driver, "Parking", "Car Park", "parking lots")
+        # ── Fallback: expand + DOM if __NEXT_DATA__ was incomplete ──────────
+        if not bedrooms or not bathrooms or not sqft:
+            _expand_all(driver)
+            time.sleep(1.5)
+            page_text = driver.find_element(By.TAG_NAME, "body").text
 
-        # ── sqft ────────────────────────────────────────────────────────────
-        sqft = ""
-        page_text = driver.find_element(By.TAG_NAME, "body").text
-        sqft_m = re.search(r'([\d,]+)\s*sqft', page_text, re.IGNORECASE)
-        if sqft_m:
-            sqft = sqft_m.group(1).replace(",", "")  # plain number; frontend adds " sqft"
+            if not bedrooms:
+                bedrooms = (_stat_from_label(driver, "Beds", "Bed")
+                            or _first_int(page_text, r'(\d+)\s*[Bb]eds?\b'))
+            if not bathrooms:
+                bathrooms = (_stat_from_label(driver, "Baths", "Bath")
+                             or _first_int(page_text, r'(\d+)\s*[Bb]aths?\b'))
+            if not sqft:
+                m = re.search(r'([\d,]+)\s*sqft', page_text, re.IGNORECASE)
+                if m:
+                    sqft = m.group(1).replace(",", "")
+            if not parking:
+                parking = (_first_int(page_text, r'(\d+)\s*(?:parking\s*lots?|car\s*parks?|car\s*park\b)')
+                           or _stat_from_label(driver, "Car Park", "Parking"))
 
-        # ── Fallback to JSON-LD if element search found nothing ─────────────
-        if not bedrooms or not bathrooms:
-            jl_beds, jl_baths, jl_sqft = _from_jsonld(soup)
-            bedrooms = bedrooms or jl_beds
-            bathrooms = bathrooms or jl_baths
-            sqft = sqft or jl_sqft
+        # ── Description: click "See more" to open modal ─────────────────────
+        if not description:
+            description = _extract_description(driver)
 
-        # ── Expand hidden sections (see all / see more) ─────────────────────
-        _expand_all(driver)
-        time.sleep(1.5)
+        # ── Facilities fallback ─────────────────────────────────────────────
+        if not facilities:
+            page_text = driver.find_element(By.TAG_NAME, "body").text
+            facilities = _extract_facilities(driver, page_text, description)
 
-        # ── Description / About — may open in a modal ───────────────────────
-        desc_text = _extract_description(driver)
+        # ── Nearby from description ─────────────────────────────────────────
+        nearby = _extract_nearby(description)
+        if not nearby:
+            page_text = driver.find_element(By.TAG_NAME, "body").text
+            nearby = _extract_nearby(page_text)
 
-        # ── Parking from description if not found via element ───────────────
-        if not parking:
-            parking = _first_int(desc_text or page_text,
-                                 r'(\d+)\s*(?:car\s*park|parking\s*lots?)')
-
-        # ── Facilities ──────────────────────────────────────────────────────
-        # Re-read page text after expansions
-        page_text = driver.find_element(By.TAG_NAME, "body").text
-        facilities = _extract_facilities(driver, page_text, desc_text)
-
-        # ── Nearby places ───────────────────────────────────────────────────
-        nearby = _extract_nearby(desc_text or page_text)
-
-        # ── Agent ───────────────────────────────────────────────────────────
-        agent_name, phone = _extract_agent(driver)
+        # ── Agent fallback ─────────────────────────────────────────────────
+        if not agent_name:
+            agent_name = safe_text(driver, "[da-id='agent-name'], .agent-name")
+        if not agent_phone:
+            agent_phone = _extract_phone(driver)
 
         return {
-            "title": safe_text(driver, "h1") or "",
+            "title": title,
             "price": price,
             "images": images,
+            "description": description,
             "details": {
                 "sqft": sqft,
                 "bedrooms": bedrooms,
@@ -94,22 +97,135 @@ def scrape(url: str) -> dict:
             },
             "facilities": facilities,
             "nearbyPlaces": nearby,
-            "agent": {"name": agent_name, "phone": phone},
+            "agent": {"name": agent_name, "phone": agent_phone},
         }
     finally:
         driver.quit()
 
 
+# ── __NEXT_DATA__ extraction ───────────────────────────────────────────────
+
+def _from_next_data(soup: BeautifulSoup) -> dict:
+    """Parse the Next.js __NEXT_DATA__ JSON blob embedded in the page."""
+    script = soup.find("script", id="__NEXT_DATA__")
+    if not script or not script.string:
+        return {}
+    try:
+        raw = json.loads(script.string)
+    except Exception:
+        return {}
+
+    # Navigate to pageProps
+    page_props = raw.get("props", {}).get("pageProps", {})
+
+    # Try to locate the listing object under various paths
+    listing = None
+    candidates = [
+        page_props.get("listing"),
+        page_props.get("property"),
+        page_props.get("unit"),
+        page_props.get("data", {}).get("listing") if isinstance(page_props.get("data"), dict) else None,
+        page_props.get("initialData", {}).get("listing") if isinstance(page_props.get("initialData"), dict) else None,
+        page_props.get("dehydratedState"),  # react-query
+    ]
+    for c in candidates:
+        if isinstance(c, dict):
+            listing = c
+            break
+
+    if not listing:
+        # Deep search for a dict containing "title" and "price"
+        listing = _deep_find(raw, lambda d: d.get("title") and d.get("attributes")) or {}
+
+    result: dict = {}
+
+    # Title
+    result["title"] = (listing.get("title") or listing.get("name") or "")
+
+    # Price
+    price_raw = (
+        listing.get("price")
+        or listing.get("listingPrice")
+        or listing.get("priceFormatted")
+        or listing.get("rentalPrice")
+        or ""
+    )
+    if isinstance(price_raw, (int, float)):
+        price_raw = f"RM {price_raw:,.0f}"
+    result["price"] = str(price_raw)
+
+    # Attributes
+    attrs = listing.get("attributes") or listing.get("details") or {}
+    if isinstance(attrs, dict):
+        result["bedrooms"]  = _safe_int(attrs.get("bedrooms") or attrs.get("bedroom") or 0)
+        result["bathrooms"] = _safe_int(attrs.get("bathrooms") or attrs.get("bathroom") or 0)
+        result["parking"]   = _safe_int(attrs.get("parking") or attrs.get("carPark") or 0)
+        sqft_raw = attrs.get("floorSize") or attrs.get("landSize") or attrs.get("size") or ""
+        result["sqft"] = str(sqft_raw).replace(",", "") if sqft_raw else ""
+
+    # Facilities
+    fac_raw = listing.get("facilities") or listing.get("amenities") or []
+    if isinstance(fac_raw, list):
+        result["facilities"] = [
+            f.get("name") or f if isinstance(f, dict) else str(f)
+            for f in fac_raw if f
+        ]
+
+    # Description
+    result["description"] = (
+        listing.get("description")
+        or listing.get("about")
+        or listing.get("listingDescription")
+        or ""
+    )
+
+    # Agent
+    agent = listing.get("agent") or listing.get("advertiser") or {}
+    if isinstance(agent, dict):
+        result["agentName"]  = agent.get("name") or agent.get("displayName") or ""
+        result["agentPhone"] = agent.get("phone") or agent.get("mobile") or ""
+
+    return result
+
+
+def _deep_find(obj, predicate, _depth=0):
+    """Recursively search for a dict matching predicate (max depth 8)."""
+    if _depth > 8:
+        return None
+    if isinstance(obj, dict):
+        if predicate(obj):
+            return obj
+        for v in obj.values():
+            r = _deep_find(v, predicate, _depth + 1)
+            if r is not None:
+                return r
+    elif isinstance(obj, list):
+        for item in obj:
+            r = _deep_find(item, predicate, _depth + 1)
+            if r is not None:
+                return r
+    return None
+
+
+# ── Price fallback ─────────────────────────────────────────────────────────
+
+def _scrape_price(driver) -> str:
+    for sel in ["[da-id='listing-price']", "[class*='listing-price']", "[class*='Price']"]:
+        v = safe_text(driver, sel)
+        if v and "RM" in v:
+            return v.strip()
+    page_text = driver.find_element(By.TAG_NAME, "body").text
+    m = re.search(r'RM\s*[\d,]{3,}(?:\s*/\s*\w+)?', page_text)
+    return m.group(0).strip() if m else ""
+
+
 # ── Stat label extraction ──────────────────────────────────────────────────
 
 def _stat_from_label(driver, *labels: str) -> int:
-    """Find elements whose text matches any label, return the adjacent number."""
     for label in labels:
         try:
-            els = driver.find_elements(By.XPATH,
-                f"//*[normalize-space(text())='{label}']")
+            els = driver.find_elements(By.XPATH, f"//*[normalize-space(text())='{label}']")
             for el in els:
-                # Number is usually in the parent or a sibling
                 for xpath in ["..", "preceding-sibling::*[1]", "following-sibling::*[1]"]:
                     try:
                         target = el.find_element(By.XPATH, xpath)
@@ -118,14 +234,6 @@ def _stat_from_label(driver, *labels: str) -> int:
                             return int(m.group(1))
                     except Exception:
                         pass
-                # Fallback: number in parent's full text
-                try:
-                    parent_text = el.find_element(By.XPATH, "..").text
-                    m = re.search(r'(\d+)', parent_text)
-                    if m:
-                        return int(m.group(1))
-                except Exception:
-                    pass
         except Exception:
             pass
     return 0
@@ -140,14 +248,11 @@ def _expand_all(driver) -> None:
             xpath = (
                 f"//button[contains(translate(normalize-space(text()),"
                 f"'ABCDEFGHIJKLMNOPQRSTUVWXYZ','abcdefghijklmnopqrstuvwxyz'),'{phrase}')]"
-                f"|//a[contains(translate(normalize-space(text()),"
-                f"'ABCDEFGHIJKLMNOPQRSTUVWXYZ','abcdefghijklmnopqrstuvwxyz'),'{phrase}')]"
                 f"|//span[contains(translate(normalize-space(text()),"
                 f"'ABCDEFGHIJKLMNOPQRSTUVWXYZ','abcdefghijklmnopqrstuvwxyz'),'{phrase}')]"
             )
             for el in driver.find_elements(By.XPATH, xpath):
                 try:
-                    driver.execute_script("arguments[0].scrollIntoView(true);", el)
                     driver.execute_script("arguments[0].click();", el)
                     time.sleep(0.4)
                 except Exception:
@@ -156,86 +261,50 @@ def _expand_all(driver) -> None:
             pass
 
 
-# ── Description / About ────────────────────────────────────────────────────
+# ── Description modal ──────────────────────────────────────────────────────
 
 def _extract_description(driver) -> str:
-    """Click 'see more' to open the description modal and extract its text."""
-    # Click any 'see more' button (description-specific)
     try:
-        for xpath in [
-            "//button[contains(translate(normalize-space(text()),'ABCDEFGHIJKLMNOPQRSTUVWXYZ','abcdefghijklmnopqrstuvwxyz'),'see more')]",
-            "//span[contains(translate(normalize-space(text()),'ABCDEFGHIJKLMNOPQRSTUVWXYZ','abcdefghijklmnopqrstuvwxyz'),'see more')]",
-        ]:
-            btns = driver.find_elements(By.XPATH, xpath)
-            for btn in btns:
-                try:
-                    driver.execute_script("arguments[0].click();", btn)
-                    time.sleep(1)
-                    # Look for the description modal
-                    for modal_sel in [".description-modal-body", ".modal-body", "[class*='description-modal']"]:
-                        modals = driver.find_elements(By.CSS_SELECTOR, modal_sel)
-                        if modals and modals[0].text.strip():
-                            text = modals[0].text
-                            # Close the modal
-                            try:
-                                close = driver.find_element(By.CSS_SELECTOR,
-                                    "[class*='modal-close'], [aria-label='Close'], [aria-label='close'], button.close")
-                                close.click()
-                            except Exception:
-                                try:
-                                    driver.find_element(By.TAG_NAME, "body").send_keys("")  # ESC
-                                except Exception:
-                                    pass
-                            return text
-                except Exception:
-                    pass
+        xpath = (
+            "//button[contains(translate(normalize-space(text()),'ABCDEFGHIJKLMNOPQRSTUVWXYZ','abcdefghijklmnopqrstuvwxyz'),'see more')]"
+            "|//span[contains(translate(normalize-space(text()),'ABCDEFGHIJKLMNOPQRSTUVWXYZ','abcdefghijklmnopqrstuvwxyz'),'see more')]"
+        )
+        for btn in driver.find_elements(By.XPATH, xpath):
+            try:
+                driver.execute_script("arguments[0].click();", btn)
+                time.sleep(1.2)
+                for sel in [".description-modal-body", ".modal-body", "[class*='description-modal']"]:
+                    els = driver.find_elements(By.CSS_SELECTOR, sel)
+                    if els and els[0].text.strip():
+                        text = els[0].text.strip()
+                        # Close modal
+                        try:
+                            driver.find_element(By.CSS_SELECTOR,
+                                "[class*='modal-close'],[aria-label='Close'],[aria-label='close']"
+                            ).click()
+                        except Exception:
+                            pass
+                        return text
+            except Exception:
+                pass
     except Exception:
         pass
     return ""
 
 
-# ── JSON-LD fallback ───────────────────────────────────────────────────────
-
-def _from_jsonld(soup: BeautifulSoup) -> tuple[int, int, str]:
-    for script in soup.find_all("script", type="application/ld+json"):
-        try:
-            data = json.loads(script.string or "")
-            if isinstance(data, list):
-                data = next((d for d in data if isinstance(d, dict)), {})
-            beds = int(data.get("numberOfBedrooms", 0) or 0)
-            baths = int(
-                data.get("numberOfBathroomsTotal", 0)
-                or data.get("numberOfBathrooms", 0)
-                or 0
-            )
-            sqft = ""
-            fs = data.get("floorSize", {})
-            if isinstance(fs, dict) and fs.get("value"):
-                sqft = str(fs["value"])
-            if beds or baths or sqft:
-                return beds, baths, sqft
-        except Exception:
-            pass
-    return 0, 0, ""
-
-
 # ── Facilities ─────────────────────────────────────────────────────────────
 
-_ICON_RE = re.compile(r'^[\w]+-[\w-]+$')  # "asterisk-o", "check-small-f" etc.
+_ICON_RE = re.compile(r'^[\w]+-[\w-]+$')
 
 
 def _extract_facilities(driver, page_text: str, desc_text: str) -> list[str]:
     candidates: list[str] = []
-
-    # Try CSS class selectors
-    for sel in ["[da-id='amenity-tag']", "[class*='AmenityTag']",
-                "[class*='FacilityTag']", "[class*='amenity-tag']"]:
+    for sel in ["[da-id='amenity-tag']", "[class*='AmenityTag']", "[class*='FacilityTag']"]:
         els = driver.find_elements(By.CSS_SELECTOR, sel)
         if els:
             candidates = [e.text.strip() for e in els if e.text.strip()]
             break
 
-    # Parse "Common facilities" block from page text
     common_m = re.search(
         r'[Cc]ommon\s+facilities?\s*\n(.*?)(?:\n{3,}|Agent|Edward|\Z)',
         page_text, re.DOTALL
@@ -246,7 +315,6 @@ def _extract_facilities(driver, page_text: str, desc_text: str) -> list[str]:
             if line and len(line) > 2 and not _ICON_RE.match(line):
                 candidates.append(line)
 
-    # "Other facilities: basketball court, music room, study room"
     for text in [desc_text, page_text]:
         m = re.search(r'[Oo]ther\s+facilities?:?\s*(.+?)(?:\n\n|\Z)', text, re.DOTALL)
         if m:
@@ -260,48 +328,34 @@ def _extract_facilities(driver, page_text: str, desc_text: str) -> list[str]:
             if not re.fullmatch(r'[\d,\s]+', f) and not _ICON_RE.match(f)][:20]
 
 
-# ── Nearby places ──────────────────────────────────────────────────────────
+# ── Nearby ─────────────────────────────────────────────────────────────────
 
 def _extract_nearby(text: str) -> list[str]:
     out: list[str] = []
-    # "- Alice Smith International school (3 Min)"
     for m in re.finditer(
         r'[-•]\s*([A-Za-z][^\n(]{4,80}?)\s*\(\s*(?:within\s*)?[\d]+\s*[Mm]in[^)]*\)',
         text,
     ):
         out.append(m.group(1).strip())
-    # "1) IOI City Mall, Putrajaya"
     for m in re.finditer(r'\d+\)\s*([A-Z][^\n]{4,60})', text):
         out.append(m.group(1).strip())
     return _dedup(out)[:10]
 
 
-# ── Agent ──────────────────────────────────────────────────────────────────
+# ── Agent phone ────────────────────────────────────────────────────────────
 
-def _extract_agent(driver) -> tuple[str, str]:
-    agent_name = ""
-    for sel in ["[da-id='agent-name']", ".agent-name", "[class*='AgentName']"]:
-        v = safe_text(driver, sel)
-        if v:
-            agent_name = v.strip()
-            break
-
-    phone = ""
-    # Click the phone/call button and look for a phone number pattern
+def _extract_phone(driver) -> str:
     try:
-        phone_btn = driver.find_element(By.CSS_SELECTOR,
-            "[da-id='enquiry-widget-phone-btn']")
-        driver.execute_script("arguments[0].click();", phone_btn)
+        btn = driver.find_element(By.CSS_SELECTOR, "[da-id='enquiry-widget-phone-btn']")
+        driver.execute_script("arguments[0].click();", btn)
         time.sleep(2)
-        # Phone number usually appears somewhere on page after reveal
         body_text = driver.find_element(By.TAG_NAME, "body").text
-        phone_m = re.search(r'(?:\+?60|0)\d[\d\s-]{7,11}', body_text)
-        if phone_m:
-            phone = re.sub(r'[\s-]', '', phone_m.group(0))
+        m = re.search(r'(?:\+?60|0)[1-9]\d[\d\s-]{6,11}', body_text)
+        if m:
+            return re.sub(r'[\s-]', '', m.group(0))
     except Exception:
         pass
-
-    return agent_name, phone
+    return ""
 
 
 # ── Helpers ────────────────────────────────────────────────────────────────
@@ -310,7 +364,14 @@ def _is_listing_image(src: str) -> bool:
     if not src or src.endswith(".gif") or src.endswith(".svg"):
         return False
     low = src.lower()
-    return any(k in low for k in ("/photos/", "/photo/", "/listing/", "iproperty", "iprop"))
+    return any(k in low for k in ("/photos/", "/photo/", "/listing/", "iproperty", "iprop", "my-iproperty"))
+
+
+def _safe_int(v) -> int:
+    try:
+        return int(str(v).replace(",", "").strip() or 0)
+    except Exception:
+        return 0
 
 
 def _first_int(text: str, pattern: str) -> int:

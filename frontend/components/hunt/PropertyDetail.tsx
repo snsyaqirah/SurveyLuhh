@@ -17,6 +17,7 @@ export default function PropertyDetail({ property, onDelete }: PropertyDetailPro
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [lightboxOpen, setLightboxOpen] = useState(false);
   const [showAllFacilities, setShowAllFacilities] = useState(false);
+  const [showFullDesc, setShowFullDesc] = useState(false);
 
   const whatsappUrl = property.agent.phone
     ? `https://wa.me/${stripNonDigits(property.agent.phone)}?text=${encodeURIComponent(
@@ -298,6 +299,39 @@ export default function PropertyDetail({ property, onDelete }: PropertyDetailPro
           )}
         </div>
       </div>
+
+      {/* About */}
+      {property.description && (
+        <div
+          className="p-4 rounded-xl space-y-2"
+          style={{ background: '#FFFFFF', border: '1px solid #E2DFF0' }}
+        >
+          <h3 className="text-[10px] font-semibold uppercase tracking-wider" style={{ color: '#9DA3B8' }}>
+            About
+          </h3>
+          <p
+            className="text-sm leading-relaxed whitespace-pre-line"
+            style={{
+              color: '#5A6280',
+              display: '-webkit-box',
+              WebkitBoxOrient: 'vertical',
+              WebkitLineClamp: showFullDesc ? undefined : 5,
+              overflow: showFullDesc ? 'visible' : 'hidden',
+            }}
+          >
+            {property.description}
+          </p>
+          {property.description.split('\n').length > 5 || property.description.length > 300 ? (
+            <button
+              onClick={() => setShowFullDesc(v => !v)}
+              className="text-xs font-medium transition-colors"
+              style={{ color: '#265CE4' }}
+            >
+              {showFullDesc ? 'Show less' : 'Read more'}
+            </button>
+          ) : null}
+        </div>
+      )}
 
       {/* Agent Card */}
       {property.agent.name && (
