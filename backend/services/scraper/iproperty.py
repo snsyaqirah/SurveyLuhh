@@ -18,6 +18,10 @@ def scrape(url: str) -> dict:
 
         # ── Primary: extract from Next.js __NEXT_DATA__ JSON ───────────────
         nd = _from_next_data(soup)
+        print("[iProp] nd keys:", list(nd.keys()))
+        print("[iProp] description:", repr(nd.get("description", ""))[:120])
+        print("[iProp] agentName:", repr(nd.get("agentName", "")))
+        print("[iProp] agentPhone:", repr(nd.get("agentPhone", "")))
 
         title        = nd.get("title") or safe_text(driver, "h1")
         price        = nd.get("price") or _scrape_price(driver)
@@ -85,6 +89,10 @@ def scrape(url: str) -> dict:
             agent_name = _extract_agent_name(driver)
         if not agent_phone:
             agent_phone = _extract_phone(driver)
+
+        print("[iProp] FINAL description:", repr(description)[:120])
+        print("[iProp] FINAL agent_name:", repr(agent_name))
+        print("[iProp] FINAL agent_phone:", repr(agent_phone))
 
         return {
             "title": title,
