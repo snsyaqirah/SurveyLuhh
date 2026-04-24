@@ -63,7 +63,9 @@ def scrape(url: str) -> dict:
                 parking = (_first_int(page_text, r'(\d+)\s*(?:parking\s*lots?|car\s*parks?|car\s*park\b)')
                            or _stat_from_label(driver, "Car Park", "Parking"))
 
-        # ── Description: click "See more" to open modal ─────────────────────
+        # ── Description: DOM direct → then modal fallback ──────────────────
+        if not description:
+            description = _extract_description_dom(driver)
         if not description:
             description = _extract_description(driver)
 
@@ -80,7 +82,7 @@ def scrape(url: str) -> dict:
 
         # ── Agent fallback ─────────────────────────────────────────────────
         if not agent_name:
-            agent_name = safe_text(driver, "[da-id='agent-name'], .agent-name")
+            agent_name = _extract_agent_name(driver)
         if not agent_phone:
             agent_phone = _extract_phone(driver)
 
@@ -289,6 +291,53 @@ def _extract_description(driver) -> str:
                 pass
     except Exception:
         pass
+    return ""
+
+
+# ── Description DOM direct ────────────────────────────────────────────────
+
+def _extract_description_dom(driver) -> str:
+    selectors = [
+        "[da-id='listing-description']",
+        "[da-id='description']",
+        "[class*='ListingDescription']",
+        "[class*='listing-description']",
+        "[data-testid='description']",
+        "[data-testid='listing-description']",
+        "[class*='DescriptionContent']",
+        "[class*='description-content']",
+        ".listing-details__description",
+    ]
+    for sel in selectors:
+        try:
+            els = driver.find_elements(By.CSS_SELECTOR, sel)
+            for el in els:
+                text = el.text.strip()
+                if text and len(text) > 30:
+                    return text
+        except Exception:
+            pass
+    return ""
+
+
+# ── Agent name DOM ────────────────────────────────────────────────────────
+
+def _extract_agent_name(driver) -> str:
+    selectors = [
+        "[da-id='agent-name']",
+        "[da-id='agent-card-name']",
+        "[da-id='enquiry-widget-agent-name']",
+        "[class*='AgentName']",
+        "[class*='agent-name']",
+        ".agent-name",
+    ]
+    for sel in selectors:
+        try:
+            text = driver.find_element(By.CSS_SELECTOR, sel).text.strip()
+            if text:
+                return text
+        except Exception:
+            pass
     return ""
 
 
