@@ -16,6 +16,7 @@ export default function PropertyDetail({ property, onDelete }: PropertyDetailPro
   const [activeImageIndex, setActiveImageIndex] = useState(0);
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [lightboxOpen, setLightboxOpen] = useState(false);
+  const [showAllFacilities, setShowAllFacilities] = useState(false);
 
   const whatsappUrl = property.agent.phone
     ? `https://wa.me/${stripNonDigits(property.agent.phone)}?text=${encodeURIComponent(
@@ -224,8 +225,8 @@ export default function PropertyDetail({ property, onDelete }: PropertyDetailPro
         </div>
       )}
 
-      {/* Two-column info grid */}
-      <div className="grid grid-cols-2 gap-3">
+      {/* Two-column info grid — single col on mobile */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
         {/* Box 1 — Property Details */}
         <div
           className="p-4 rounded-xl space-y-3"
@@ -261,7 +262,7 @@ export default function PropertyDetail({ property, onDelete }: PropertyDetailPro
             <div className="space-y-1.5">
               <p className="text-[10px] uppercase tracking-wider" style={{ color: '#9DA3B8' }}>Facilities</p>
               <div className="flex flex-wrap gap-1">
-                {property.facilities.slice(0, 5).map((f, i) => (
+                {(showAllFacilities ? property.facilities : property.facilities.slice(0, 5)).map((f, i) => (
                   <span
                     key={i}
                     className="text-[10px] px-2 py-0.5 rounded-full"
@@ -271,12 +272,13 @@ export default function PropertyDetail({ property, onDelete }: PropertyDetailPro
                   </span>
                 ))}
                 {property.facilities.length > 5 && (
-                  <span
-                    className="text-[10px] px-2 py-0.5 rounded-full"
-                    style={{ background: '#F3F0FF', color: '#9DA3B8' }}
+                  <button
+                    onClick={() => setShowAllFacilities(v => !v)}
+                    className="text-[10px] px-2 py-0.5 rounded-full transition-colors"
+                    style={{ background: '#EBF0FE', color: '#265CE4' }}
                   >
-                    +{property.facilities.length - 5} more
-                  </span>
+                    {showAllFacilities ? 'Show less' : `+${property.facilities.length - 5} more`}
+                  </button>
                 )}
               </div>
             </div>

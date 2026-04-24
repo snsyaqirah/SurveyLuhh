@@ -13,10 +13,10 @@ export default function LandingPage() {
 
   return (
     <main
-      className="h-screen w-full overflow-hidden flex items-center"
+      className="min-h-screen w-full flex items-center py-12"
       style={{ background: '#FAF8FF' }}
     >
-      <div className="w-full max-w-6xl mx-auto px-16 grid grid-cols-2 items-center gap-12">
+      <div className="w-full max-w-6xl mx-auto px-6 sm:px-10 lg:px-16 grid grid-cols-1 md:grid-cols-2 items-center gap-10 lg:gap-12">
 
         {/* Left — Copy */}
         <div className="space-y-7">
@@ -28,7 +28,7 @@ export default function LandingPage() {
           </p>
 
           <h1
-            className="text-[3.2rem] font-bold leading-[1.13] tracking-tight"
+            className="text-4xl sm:text-[3.2rem] font-bold leading-[1.13] tracking-tight"
             style={{ color: '#282F41' }}
           >
             Stop copy&#8209;pasting,{' '}
@@ -54,10 +54,10 @@ export default function LandingPage() {
           </button>
         </div>
 
-        {/* Right — Property Card */}
-        <div className="flex justify-center">
+        {/* Right — Property Card (hidden on small mobile, visible md+) */}
+        <div className="hidden sm:flex justify-center">
           <div
-            className="relative w-[460px] h-[360px] rounded-2xl overflow-hidden"
+            className="relative w-full max-w-[460px] h-[320px] sm:h-[360px] rounded-2xl overflow-hidden"
             style={{
               boxShadow: '0 20px 60px rgba(38, 92, 228, 0.14), 0 4px 16px rgba(38, 92, 228, 0.08)',
               border: '1.5px solid rgba(255,255,255,0.9)',
