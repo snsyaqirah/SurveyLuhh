@@ -18,10 +18,6 @@ def scrape(url: str) -> dict:
 
         # ── Primary: extract from Next.js __NEXT_DATA__ JSON ───────────────
         nd = _from_next_data(soup)
-        print("[iProp] nd keys:", list(nd.keys()))
-        print("[iProp] description:", repr(nd.get("description", ""))[:120])
-        print("[iProp] agentName:", repr(nd.get("agentName", "")))
-        print("[iProp] agentPhone:", repr(nd.get("agentPhone", "")))
 
         title        = nd.get("title") or safe_text(driver, "h1")
         price        = nd.get("price") or _scrape_price(driver)
@@ -90,10 +86,6 @@ def scrape(url: str) -> dict:
         if not agent_phone:
             agent_phone = _extract_phone(driver)
 
-        print("[iProp] FINAL description:", repr(description)[:120])
-        print("[iProp] FINAL agent_name:", repr(agent_name))
-        print("[iProp] FINAL agent_phone:", repr(agent_phone))
-
         return {
             "title": title,
             "price": price,
@@ -127,6 +119,8 @@ def _from_next_data(soup: BeautifulSoup) -> dict:
 
     # Navigate to pageProps
     page_props = raw.get("props", {}).get("pageProps", {})
+    page_data  = page_props.get("pageData") or {}
+    page_data_inner = page_data.get("data") if isinstance(page_data, dict) else {}
 
     # Try to locate the listing object under various paths
     listing = None
@@ -134,17 +128,21 @@ def _from_next_data(soup: BeautifulSoup) -> dict:
         page_props.get("listing"),
         page_props.get("property"),
         page_props.get("unit"),
+        page_data.get("listing") if isinstance(page_data, dict) else None,
+        page_data.get("property") if isinstance(page_data, dict) else None,
+        page_data.get("listingDetail") if isinstance(page_data, dict) else None,
+        page_data_inner.get("listing") if isinstance(page_data_inner, dict) else None,
+        page_data_inner.get("property") if isinstance(page_data_inner, dict) else None,
+        page_data_inner if isinstance(page_data_inner, dict) and page_data_inner.get("title") else None,
         page_props.get("data", {}).get("listing") if isinstance(page_props.get("data"), dict) else None,
         page_props.get("initialData", {}).get("listing") if isinstance(page_props.get("initialData"), dict) else None,
-        page_props.get("dehydratedState"),  # react-query
     ]
     for c in candidates:
-        if isinstance(c, dict):
+        if isinstance(c, dict) and c:
             listing = c
             break
 
     if not listing:
-        # Deep search for a dict containing "title" and "price"
         listing = _deep_find(raw, lambda d: d.get("title") and d.get("attributes")) or {}
 
     result: dict = {}
@@ -305,47 +303,102 @@ def _extract_description(driver) -> str:
 # ── Description DOM direct ────────────────────────────────────────────────
 
 def _extract_description_dom(driver) -> str:
-    selectors = [
-        "[da-id='listing-description']",
-        "[da-id='description']",
-        "[class*='ListingDescription']",
-        "[class*='listing-description']",
-        "[data-testid='description']",
-        "[data-testid='listing-description']",
-        "[class*='DescriptionContent']",
-        "[class*='description-content']",
+    # 1. JS: scan every [da-id] element for description/about
+    try:
+        text = driver.execute_script("""
+            for (const el of document.querySelectorAll('[da-id]')) {
+                const id = (el.getAttribute('da-id') || '').toLowerCase();
+                if (id.includes('description') || id.includes('about')) {
+                    const t = el.innerText.trim();
+                    if (t.length > 30) return t;
+                }
+            }
+            return null;
+        """)
+        if text and len(text) > 30:
+            return text
+    except Exception:
+        pass
+
+    # 2. CSS selectors
+    for sel in [
+        "[class*='ListingDescription']", "[class*='listing-description']",
+        "[class*='DescriptionContent']", "[class*='description-content']",
+        "[data-testid*='description']", "[data-testid*='about']",
         ".listing-details__description",
-    ]
-    for sel in selectors:
+    ]:
         try:
-            els = driver.find_elements(By.CSS_SELECTOR, sel)
-            for el in els:
-                text = el.text.strip()
-                if text and len(text) > 30:
-                    return text
+            for el in driver.find_elements(By.CSS_SELECTOR, sel):
+                t = el.text.strip()
+                if t and len(t) > 30:
+                    return t
         except Exception:
             pass
+
+    # 3. Page-text regex: grab text block after an "About" heading
+    try:
+        page_text = driver.find_element(By.TAG_NAME, "body").text
+        m = re.search(
+            r'(?:^|\n)(?:About|About this (?:property|unit)|Description|Listing Description)\s*\n'
+            r'([\s\S]{50,1200}?)(?=\n{2,}|\nFacilities|\nCommon|\nAgent|\nListed by|\nContact|\Z)',
+            page_text, re.IGNORECASE | re.MULTILINE,
+        )
+        if m:
+            return m.group(1).strip()
+    except Exception:
+        pass
+
     return ""
 
 
 # ── Agent name DOM ────────────────────────────────────────────────────────
 
 def _extract_agent_name(driver) -> str:
-    selectors = [
-        "[da-id='agent-name']",
-        "[da-id='agent-card-name']",
+    # 1. JS: scan every [da-id] element for agent/negotiator
+    try:
+        text = driver.execute_script("""
+            for (const el of document.querySelectorAll('[da-id]')) {
+                const id = (el.getAttribute('da-id') || '').toLowerCase();
+                if (id.includes('agent') || id.includes('negotiator') || id.includes('advertiser')) {
+                    const lines = el.innerText.trim().split('\\n');
+                    for (const line of lines) {
+                        const t = line.trim();
+                        if (t && t.length > 2 && t.length < 80 && !/^[0-9+]/.test(t)) return t;
+                    }
+                }
+            }
+            return null;
+        """)
+        if text:
+            return text
+    except Exception:
+        pass
+
+    # 2. CSS selectors
+    for sel in [
+        "[da-id='agent-name']", "[da-id='agent-card-name']",
         "[da-id='enquiry-widget-agent-name']",
-        "[class*='AgentName']",
-        "[class*='agent-name']",
-        ".agent-name",
-    ]
-    for sel in selectors:
+        "[class*='AgentName']", "[class*='agent-name']", ".agent-name",
+    ]:
         try:
-            text = driver.find_element(By.CSS_SELECTOR, sel).text.strip()
-            if text:
-                return text
+            t = driver.find_element(By.CSS_SELECTOR, sel).text.strip()
+            if t:
+                return t
         except Exception:
             pass
+
+    # 3. Page-text regex after "Listed by" / "Agent" heading
+    try:
+        page_text = driver.find_element(By.TAG_NAME, "body").text
+        m = re.search(
+            r'(?:Listed by|Agent|Negotiator|Contact agent)\s*\n([A-Z][A-Za-z\s.\-]{2,50})\n',
+            page_text,
+        )
+        if m:
+            return m.group(1).strip()
+    except Exception:
+        pass
+
     return ""
 
 
