@@ -29,6 +29,7 @@ def scrape(url: str) -> dict:
         description  = nd.get("description", "")
         agent_name   = nd.get("agentName", "")
         agent_phone  = nd.get("agentPhone", "")
+        agent_agency = nd.get("agentAgency", "")
 
         # ── Images ─────────────────────────────────────────────────────────
         images: list[str] = []
@@ -83,6 +84,13 @@ def scrape(url: str) -> dict:
         # ── Agent fallback ─────────────────────────────────────────────────
         if not agent_name:
             agent_name = _extract_agent_name(driver)
+        if not agent_agency:
+            try:
+                agent_agency = driver.find_element(
+                    By.CSS_SELECTOR, "[da-id='agent-agency-name']"
+                ).text.strip()
+            except Exception:
+                pass
         if not agent_phone:
             agent_phone = _extract_phone(driver)
 
@@ -99,7 +107,7 @@ def scrape(url: str) -> dict:
             },
             "facilities": facilities,
             "nearbyPlaces": nearby,
-            "agent": {"name": agent_name, "phone": agent_phone},
+            "agent": {"name": agent_name, "phone": agent_phone, "agency": agent_agency},
         }
     finally:
         driver.quit()
@@ -190,8 +198,9 @@ def _from_next_data(soup: BeautifulSoup) -> dict:
     # Agent
     agent = listing.get("agent") or listing.get("advertiser") or {}
     if isinstance(agent, dict):
-        result["agentName"]  = agent.get("name") or agent.get("displayName") or ""
-        result["agentPhone"] = agent.get("phone") or agent.get("mobile") or ""
+        result["agentName"]   = agent.get("name") or agent.get("displayName") or ""
+        result["agentPhone"]  = agent.get("phone") or agent.get("mobile") or ""
+        result["agentAgency"] = agent.get("agency") or agent.get("agencyName") or ""
 
     return result
 
@@ -218,7 +227,7 @@ def _deep_find(obj, predicate, _depth=0):
 # ── Price fallback ─────────────────────────────────────────────────────────
 
 def _scrape_price(driver) -> str:
-    for sel in ["[da-id='listing-price']", "[class*='listing-price']", "[class*='Price']"]:
+    for sel in ["[da-id='price-amount']", "[da-id='listing-price']", "[class*='listing-price']", "[class*='Price']"]:
         v = safe_text(driver, sel)
         if v and "RM" in v:
             return v.strip()
@@ -354,27 +363,23 @@ def _extract_description_dom(driver) -> str:
 # ── Agent name DOM ────────────────────────────────────────────────────────
 
 def _extract_agent_name(driver) -> str:
-    # 1. JS: scan every [da-id] element for agent/negotiator
+    # 1. Use JS to get only the direct text of [da-id='agent-name'] (excludes child elements)
     try:
-        text = driver.execute_script("""
-            for (const el of document.querySelectorAll('[da-id]')) {
-                const id = (el.getAttribute('da-id') || '').toLowerCase();
-                if (id.includes('agent') || id.includes('negotiator') || id.includes('advertiser')) {
-                    const lines = el.innerText.trim().split('\\n');
-                    for (const line of lines) {
-                        const t = line.trim();
-                        if (t && t.length > 2 && t.length < 80 && !/^[0-9+]/.test(t)) return t;
-                    }
-                }
-            }
-            return null;
+        t = driver.execute_script("""
+            const el = document.querySelector("[da-id='agent-name']");
+            if (!el) return null;
+            return Array.from(el.childNodes)
+                .filter(n => n.nodeType === 3)
+                .map(n => n.textContent.trim())
+                .filter(t => t)
+                .join(' ') || el.textContent.trim() || null;
         """)
-        if text:
-            return text
+        if t and t.strip():
+            return t.strip()
     except Exception:
         pass
 
-    # 2. CSS selectors
+    # 2. CSS selectors (Selenium .text includes child text, use as broader fallback)
     for sel in [
         "[da-id='agent-name']", "[da-id='agent-card-name']",
         "[da-id='enquiry-widget-agent-name']",
@@ -387,11 +392,36 @@ def _extract_agent_name(driver) -> str:
         except Exception:
             pass
 
+    # 2. JS: scan [da-id] elements for agent (broader fallback)
+    try:
+        text = driver.execute_script("""
+            for (const el of document.querySelectorAll('[da-id]')) {
+                const id = (el.getAttribute('da-id') || '').toLowerCase();
+                if (id.includes('agent') || id.includes('negotiator') || id.includes('advertiser')) {
+                    const lines = el.innerText.trim().split('\\n');
+                    for (const line of lines) {
+                        const t = line.trim();
+                        if (t && t.length > 2 && t.length < 60 && !/^[0-9+]/.test(t)
+                            && !t.toLowerCase().includes('whatsapp')
+                            && !t.toLowerCase().includes('enquir')
+                            && !t.toLowerCase().includes('call')) {
+                            return t;
+                        }
+                    }
+                }
+            }
+            return null;
+        """)
+        if text:
+            return text
+    except Exception:
+        pass
+
     # 3. Page-text regex after "Listed by" / "Agent" heading
     try:
         page_text = driver.find_element(By.TAG_NAME, "body").text
         m = re.search(
-            r'(?:Listed by|Agent|Negotiator|Contact agent)\s*\n([A-Z][A-Za-z\s.\-]{2,50})\n',
+            r'(?:Listed by|Contact agent)\s*\n([A-Z][A-Za-z\s.\-]{2,50})\n',
             page_text,
         )
         if m:
@@ -455,16 +485,36 @@ def _extract_nearby(text: str) -> list[str]:
 # ── Agent phone ────────────────────────────────────────────────────────────
 
 def _extract_phone(driver) -> str:
+    # Click WhatsApp button and capture the phone from the new tab URL
+    original_handles = set(driver.window_handles)
     try:
-        btn = driver.find_element(By.CSS_SELECTOR, "[da-id='enquiry-widget-phone-btn']")
+        btn = driver.find_element(By.CSS_SELECTOR, "[da-id='enquiry-widget-whatsapp-btn']")
         driver.execute_script("arguments[0].click();", btn)
-        time.sleep(2)
-        body_text = driver.find_element(By.TAG_NAME, "body").text
-        m = re.search(r'(?:\+?60|0)[1-9]\d[\d\s-]{6,11}', body_text)
-        if m:
-            return re.sub(r'[\s-]', '', m.group(0))
+        time.sleep(3)
     except Exception:
-        pass
+        return ""
+
+    new_handles = set(driver.window_handles) - original_handles
+    for handle in new_handles:
+        url = ""
+        try:
+            driver.switch_to.window(handle)
+            url = driver.current_url
+        except Exception:
+            pass
+        try:
+            driver.close()
+        except Exception:
+            pass
+        try:
+            driver.switch_to.window(list(original_handles)[0])
+        except Exception:
+            pass
+        m = re.search(r'phone=(\d{10,15})', url)
+        if m:
+            return m.group(1)
+
+    # No new tab opened — nothing to capture
     return ""
 
 

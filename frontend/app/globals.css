@@ -31,3 +31,31 @@ body {
 ::-webkit-scrollbar       { width: 4px; height: 4px; }
 ::-webkit-scrollbar-track { background: transparent; }
 ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+
+@media print {
+  .no-print { display: none !important; }
+
+  * { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+
+  /* Unlock every overflow/height cage so content flows across pages */
+  html, body,
+  #app-shell, #app-main,
+  #detail-scroll,
+  #detail-scroll > * {
+    overflow: visible !important;
+    height: auto !important;
+    max-height: none !important;
+    flex: none !important;
+  }
+
+  /* Force full description text */
+  .print-expand {
+    display: block !important;
+    overflow: visible !important;
+    -webkit-line-clamp: unset !important;
+    max-height: none !important;
+  }
+
+  /* Don't break inside cards */
+  .rounded-xl { page-break-inside: avoid; break-inside: avoid; }
+}

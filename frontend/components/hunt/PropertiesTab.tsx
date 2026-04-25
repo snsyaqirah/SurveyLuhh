@@ -65,7 +65,7 @@ export default function PropertiesTab({ properties, onStatusUpdate, onDelete, lo
     <div className="flex h-full overflow-hidden">
       {/* Property List — full width on mobile unless detail is shown */}
       <div
-        className={`shrink-0 flex flex-col overflow-hidden transition-all
+        className={`no-print shrink-0 flex flex-col overflow-hidden transition-all
           ${showDetail ? 'hidden md:flex md:w-72' : 'flex w-full md:w-72'}`}
         style={{ borderRight: '1px solid #E2DFF0', background: '#FFFFFF' }}
       >
@@ -97,7 +97,7 @@ export default function PropertiesTab({ properties, onStatusUpdate, onDelete, lo
           </button>
         )}
 
-        <div className="flex-1 overflow-y-auto">
+        <div id="detail-scroll" className="flex-1 overflow-y-auto">
           {activeProperty ? (
             <PropertyDetail
               property={activeProperty}

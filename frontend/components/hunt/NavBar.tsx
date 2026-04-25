@@ -27,7 +27,7 @@ export default function NavBar({ activeTab, onTabChange, propertyCount }: NavBar
 
   return (
     <header
-      className="sticky top-0 z-50 flex items-center justify-between px-3 sm:px-6 py-2.5 shrink-0"
+      className="no-print sticky top-0 z-50 flex items-center justify-between px-3 sm:px-6 py-2.5 shrink-0"
       style={{ background: '#FFFFFF', borderBottom: '1px solid #E2DFF0' }}
     >
       {/* Logo */}

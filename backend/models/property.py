@@ -20,6 +20,7 @@ class PropertyDetails(BaseModel):
 class PropertyAgent(BaseModel):
     name: str = ""
     phone: str = ""
+    agency: str = ""
 
 
 class Property(BaseModel):

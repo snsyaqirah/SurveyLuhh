@@ -8,6 +8,7 @@ export interface PropertyDetails {
 export interface PropertyAgent {
   name: string;
   phone: string;
+  agency?: string;
 }
 
 export type PropertyStatus = 'none' | 'shortlisted' | 'rejected';

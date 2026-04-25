@@ -62,14 +62,14 @@ export default function HuntPage() {
   };
 
   return (
-    <div className="flex flex-col h-screen overflow-hidden" style={{ background: '#FAF8FF' }}>
+    <div id="app-shell" className="flex flex-col h-screen overflow-hidden" style={{ background: '#FAF8FF' }}>
       <NavBar
         activeTab={activeTab}
         onTabChange={setActiveTab}
         sessionId={sessionId}
         propertyCount={properties.length}
       />
-      <main className="flex-1 overflow-hidden">
+      <main id="app-main" className="flex-1 overflow-hidden">
         {activeTab === 'home' && (
           <HomeTab sessionId={sessionId} onPropertyAdded={addProperty} />
         )}
