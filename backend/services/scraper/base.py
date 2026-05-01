@@ -6,6 +6,41 @@ from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 
 
+def make_stealth_driver():
+    """Local undetected-chromedriver — bypasses Cloudflare WAF."""
+    import re
+    import subprocess
+    import undetected_chromedriver as uc
+
+    # Detect installed Chrome major version so uc downloads the matching ChromeDriver
+    chrome_major = 0
+    try:
+        out = subprocess.check_output(
+            ["google-chrome", "--version"], stderr=subprocess.DEVNULL
+        ).decode()
+        m = re.search(r"(\d+)\.", out)
+        if m:
+            chrome_major = int(m.group(1))
+    except Exception:
+        pass
+
+    opts = uc.ChromeOptions()
+    opts.add_argument("--no-sandbox")
+    opts.add_argument("--disable-dev-shm-usage")
+    opts.add_argument("--window-size=1920,1080")
+    opts.add_argument("--disable-popup-blocking")
+    # Run non-headless inside Xvfb virtual display — Cloudflare can't detect virtual display
+    os.environ.setdefault("DISPLAY", ":99")
+
+    kwargs: dict = dict(options=opts, headless=False, use_subprocess=False)
+    if chrome_major:
+        kwargs["version_main"] = chrome_major
+
+    driver = uc.Chrome(**kwargs)
+    driver.set_page_load_timeout(45)
+    return driver
+
+
 def make_driver() -> webdriver.Remote | webdriver.Chrome:
     opts = Options()
     opts.add_argument("--headless=new")
@@ -14,16 +49,35 @@ def make_driver() -> webdriver.Remote | webdriver.Chrome:
     opts.add_argument("--disable-gpu")
     opts.add_argument("--window-size=1920,1080")
     opts.add_argument("--disable-popup-blocking")
+    # Suppress automation indicators that Cloudflare and other WAFs detect
+    opts.add_argument("--disable-blink-features=AutomationControlled")
     opts.add_argument(
         "user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
-        "AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Safari/537.36"
+        "AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36"
     )
+    try:
+        opts.add_experimental_option("excludeSwitches", ["enable-automation"])
+        opts.add_experimental_option("useAutomationExtension", False)
+    except Exception:
+        pass
     remote_url = os.environ.get("SELENIUM_REMOTE_URL")
     if remote_url:
         driver = webdriver.Remote(command_executor=remote_url, options=opts)
     else:
         driver = webdriver.Chrome(options=opts)
     driver.set_page_load_timeout(30)
+    # Patch navigator.webdriver via CDP (works with Selenium Grid 4 + standalone-chrome)
+    try:
+        driver.execute_cdp_cmd("Page.addScriptToEvaluateOnNewDocument", {
+            "source": """
+                Object.defineProperty(navigator, 'webdriver', {get: () => undefined});
+                Object.defineProperty(navigator, 'plugins', {get: () => [1,2,3,4,5]});
+                Object.defineProperty(navigator, 'languages', {get: () => ['en-US','en']});
+                window.chrome = {runtime: {}};
+            """
+        })
+    except Exception:
+        pass
     return driver
 
 

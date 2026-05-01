@@ -54,11 +54,14 @@ export default function HomeTab({ sessionId, onPropertyAdded }: HomeTabProps) {
       const recaptchaToken = 'dev-bypass'; // TODO: wire NEXT_PUBLIC_RECAPTCHA_SITE_KEY
       const result = await scrapeProperty({ url, sessionId, recaptchaToken });
 
-      setPhase('done');
       if (result.property) {
+        setPhase('done');
         onPropertyAdded(result.property);
         setUrl('');
         setTimeout(() => setPhase('idle'), 800);
+      } else {
+        setPhase('error');
+        setError(result.error || 'Could not scrape that listing. Please try again.');
       }
     } catch (err) {
       setPhase('error');

@@ -58,6 +58,7 @@ async def scrape_property(body: ScrapeRequest) -> ScrapeResponse:
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
+        import traceback; traceback.print_exc()
         return ScrapeResponse(success=False, error=f"Scraping failed: {e}")
 
     prop = Property(
