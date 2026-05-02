@@ -51,4 +51,24 @@ export async function updatePropertyStatus(
   if (!res.ok) throw new Error('Failed to update status');
 }
 
+export async function registerMember(sessionId: string, nickname: string): Promise<void> {
+  await fetch(`${API_BASE}/api/sessions/${sessionId}/members`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ nickname }),
+  }).catch(() => {});
+}
+
+export async function saveBracketResult(
+  sessionId: string,
+  nickname: string,
+  winnerId: string,
+): Promise<void> {
+  await fetch(`${API_BASE}/api/sessions/${sessionId}/bracket`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ nickname, winnerId }),
+  }).catch(() => {});
+}
+
 export { type Property };

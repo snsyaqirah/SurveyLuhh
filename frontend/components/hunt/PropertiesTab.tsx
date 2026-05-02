@@ -7,19 +7,20 @@ import PropertyDetail from './PropertyDetail';
 
 interface PropertiesTabProps {
   properties: Property[];
+  sessionId: string;
   onStatusUpdate: (propertyId: string, status: Property['status']) => void;
   onDelete: (propertyId: string) => void;
   loading: boolean;
 }
 
-export default function PropertiesTab({ properties, onStatusUpdate, onDelete, loading }: PropertiesTabProps) {
+export default function PropertiesTab({ properties, sessionId, onStatusUpdate, onDelete, loading }: PropertiesTabProps) {
   const [activePropertyId, setActivePropertyId] = useState<string | null>(null);
   const [showDetail, setShowDetail] = useState(false);
   const prevLengthRef = useRef(0);
 
   useEffect(() => {
     if (properties.length > prevLengthRef.current && properties.length > 0) {
-      setActivePropertyId(properties[properties.length - 1].id);
+      setActivePropertyId(properties[0].id);
       setShowDetail(true);
     } else if (!activePropertyId && properties.length > 0) {
       setActivePropertyId(properties[0].id);
@@ -63,7 +64,6 @@ export default function PropertiesTab({ properties, onStatusUpdate, onDelete, lo
 
   return (
     <div className="flex h-full overflow-hidden">
-      {/* Property List — full width on mobile unless detail is shown */}
       <div
         className={`no-print shrink-0 flex flex-col overflow-hidden transition-all
           ${showDetail ? 'hidden md:flex md:w-72' : 'flex w-full md:w-72'}`}
@@ -77,13 +77,11 @@ export default function PropertiesTab({ properties, onStatusUpdate, onDelete, lo
         />
       </div>
 
-      {/* Property Detail — full width on mobile */}
       <div
         className={`flex-1 flex flex-col overflow-hidden
           ${showDetail ? 'flex' : 'hidden md:flex'}`}
         style={{ background: '#FAF8FF' }}
       >
-        {/* Back button — mobile only */}
         {showDetail && (
           <button
             onClick={() => setShowDetail(false)}
@@ -101,6 +99,7 @@ export default function PropertiesTab({ properties, onStatusUpdate, onDelete, lo
           {activeProperty ? (
             <PropertyDetail
               property={activeProperty}
+              sessionId={sessionId}
               onDelete={() => handleDelete(activeProperty.id)}
             />
           ) : (

@@ -108,6 +108,14 @@ function PropertyListItem({ property, isActive, onSelect, onStatusUpdate }: Prop
               {statusBadge.label}
             </span>
           )}
+          {property.scrapedBy && (
+            <span
+              className="inline-block text-[10px] px-1.5 py-0.5 rounded font-medium"
+              style={{ background: '#F3F0FF', color: '#7C3AED' }}
+            >
+              {property.scrapedBy}
+            </span>
+          )}
         </div>
       </div>
     </div>
@@ -123,10 +131,7 @@ interface PropertyListProps {
 
 export default function PropertyList({ properties, activePropertyId, onSelect, onStatusUpdate }: PropertyListProps) {
   return (
-    <div
-      className="w-72 shrink-0 flex flex-col overflow-hidden"
-      style={{ borderRight: '1px solid #E2DFF0', background: '#FFFFFF' }}
-    >
+    <div className="h-full flex flex-col overflow-hidden">
       <div className="p-3 shrink-0" style={{ borderBottom: '1px solid #E2DFF0' }}>
         <p className="text-xs font-semibold uppercase tracking-wider" style={{ color: '#9DA3B8' }}>
           {properties.length} {properties.length === 1 ? 'Property' : 'Properties'}

@@ -18,8 +18,9 @@ limiter = Limiter(key_func=get_remote_address, default_limits=["5/minute"])
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    # Warm up the DB connection on startup
+    from services.db import sessions_col
     get_client()
+    await sessions_col().create_index("createdAt", expireAfterSeconds=604800)
     yield
     get_client().close()
 

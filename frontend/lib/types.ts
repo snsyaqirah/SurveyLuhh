@@ -26,19 +26,33 @@ export interface Property {
   description?: string;
   status: PropertyStatus;
   source?: string;
+  scrapedBy?: string;
   addedAt: string;
+}
+
+export interface Member {
+  nickname: string;
+  lastSeen: string;
+}
+
+export interface BracketResult {
+  nickname: string;
+  winnerId: string;
 }
 
 export interface Session {
   id: string;
   createdAt: string;
   properties: Property[];
+  members: Member[];
+  bracketResults: BracketResult[];
 }
 
 export interface ScrapeRequest {
   url: string;
   sessionId: string;
   recaptchaToken: string;
+  nickname?: string;
 }
 
 export interface ScrapeResponse {

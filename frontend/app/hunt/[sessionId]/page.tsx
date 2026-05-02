@@ -1,40 +1,90 @@
 'use client';
 
 import { useParams } from 'next/navigation';
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import NavBar from '@/components/hunt/NavBar';
 import HomeTab from '@/components/hunt/HomeTab';
 import PropertiesTab from '@/components/hunt/PropertiesTab';
 import InsightTab from '@/components/hunt/InsightTab';
-import { getSession, updatePropertyStatus as apiUpdateStatus, deleteProperty as apiDeleteProperty } from '@/lib/api';
-import type { Property } from '@/lib/types';
+import NicknameModal from '@/components/hunt/NicknameModal';
+import { getSession, updatePropertyStatus as apiUpdateStatus, deleteProperty as apiDeleteProperty, registerMember } from '@/lib/api';
+import type { Property, Member, BracketResult } from '@/lib/types';
 
 export type TabId = 'home' | 'properties' | 'insight';
+
+const nicknameKey = (sessionId: string) => `surveyluhh_nickname_${sessionId}`;
 
 export default function HuntPage() {
   const { sessionId } = useParams<{ sessionId: string }>();
   const [activeTab, setActiveTab] = useState<TabId>('home');
   const [properties, setProperties] = useState<Property[]>([]);
+  const [members, setMembers] = useState<Member[]>([]);
+  const [bracketResults, setBracketResults] = useState<BracketResult[]>([]);
   const [loading, setLoading] = useState(true);
-  const hasFetched = useRef(false);
+  const [nickname, setNickname] = useState<string | null>(null);
+  const [showNicknameModal, setShowNicknameModal] = useState(false);
+  const [sessionCreatedAt, setSessionCreatedAt] = useState<string | null>(null);
+
+  useEffect(() => {
+    const saved = localStorage.getItem(nicknameKey(sessionId));
+    if (saved) {
+      setNickname(saved);
+    } else {
+      setShowNicknameModal(true);
+    }
+  }, [sessionId]);
 
   const fetchSession = useCallback(async () => {
     try {
       const session = await getSession(sessionId);
       setProperties(session.properties);
+      setMembers(session.members ?? []);
+      setBracketResults(session.bracketResults ?? []);
+      setSessionCreatedAt(session.createdAt);
     } catch {
-      // Session not yet in DB — start fresh
+      // Session not found — start fresh
     } finally {
       setLoading(false);
     }
   }, [sessionId]);
 
+  // Initial load
   useEffect(() => {
-    if (!hasFetched.current) {
-      hasFetched.current = true;
-      fetchSession();
-    }
+    fetchSession();
   }, [fetchSession]);
+
+  // Poll members + bracketResults every 30s so friends' activity shows up
+  useEffect(() => {
+    const id = setInterval(async () => {
+      try {
+        const session = await getSession(sessionId);
+        setMembers(session.members ?? []);
+        setBracketResults(session.bracketResults ?? []);
+      } catch { /* silent */ }
+    }, 30_000);
+    return () => clearInterval(id);
+  }, [sessionId]);
+
+  const handleNicknameConfirm = (name: string) => {
+    localStorage.setItem(nicknameKey(sessionId), name);
+    setNickname(name);        // triggers the useEffect below which calls registerMember
+    setShowNicknameModal(false);
+  };
+
+  useEffect(() => {
+    if (nickname) registerMember(sessionId, nickname);
+  }, [nickname, sessionId]);
+
+  const handleTabChange = useCallback(async (tab: TabId) => {
+    setActiveTab(tab);
+    if (tab === 'insight') {
+      try {
+        const session = await getSession(sessionId);
+        setMembers(session.members ?? []);
+        setBracketResults(session.bracketResults ?? []);
+      } catch { /* silent */ }
+    }
+  }, [sessionId]);
 
   const addProperty = (property: Property) => {
     setProperties(prev => [...prev, property]);
@@ -45,9 +95,7 @@ export default function HuntPage() {
     setProperties(prev => prev.filter(p => p.id !== propertyId));
     try {
       await apiDeleteProperty(sessionId, propertyId);
-    } catch {
-      // Silently fail — local state already updated
-    }
+    } catch { /* silent */ }
   };
 
   const handleStatusUpdate = async (propertyId: string, status: Property['status']) => {
@@ -56,33 +104,55 @@ export default function HuntPage() {
     );
     try {
       await apiUpdateStatus(sessionId, propertyId, status);
-    } catch {
-      // Silently fail — local state already updated
-    }
+    } catch { /* silent */ }
+  };
+
+  const handleBracketResult = (winnerId: string) => {
+    if (!nickname) return;
+    setBracketResults(prev => [
+      ...prev.filter(r => r.nickname !== nickname),
+      { nickname, winnerId },
+    ]);
   };
 
   return (
     <div id="app-shell" className="flex flex-col h-screen overflow-hidden" style={{ background: '#FAF8FF' }}>
+      {showNicknameModal && (
+        <NicknameModal
+          onConfirm={handleNicknameConfirm}
+          existingMembers={[...new Set(members.map(m => m.nickname))]}
+        />
+      )}
       <NavBar
         activeTab={activeTab}
-        onTabChange={setActiveTab}
+        onTabChange={handleTabChange}
         sessionId={sessionId}
         propertyCount={properties.length}
+        members={members}
+        nickname={nickname}
+        sessionCreatedAt={sessionCreatedAt}
       />
       <main id="app-main" className="flex-1 overflow-hidden">
         {activeTab === 'home' && (
-          <HomeTab sessionId={sessionId} onPropertyAdded={addProperty} />
+          <HomeTab sessionId={sessionId} nickname={nickname ?? ''} onPropertyAdded={addProperty} />
         )}
         {activeTab === 'properties' && (
           <PropertiesTab
             properties={properties}
+            sessionId={sessionId}
             onStatusUpdate={handleStatusUpdate}
             onDelete={handleDelete}
             loading={loading}
           />
         )}
         {activeTab === 'insight' && (
-          <InsightTab properties={properties} sessionId={sessionId} />
+          <InsightTab
+            properties={properties}
+            sessionId={sessionId}
+            nickname={nickname ?? ''}
+            bracketResults={bracketResults}
+            onBracketResult={handleBracketResult}
+          />
         )}
       </main>
     </div>

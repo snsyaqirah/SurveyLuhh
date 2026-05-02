@@ -8,6 +8,7 @@ const SUPPORTED_DOMAINS = ['propertyguru.com.my', 'mudah.my', 'iproperty.com.my'
 
 interface HomeTabProps {
   sessionId: string;
+  nickname: string;
   onPropertyAdded: (property: Property) => void;
 }
 
@@ -30,12 +31,21 @@ function isValidPropertyUrl(value: string): boolean {
   }
 }
 
-export default function HomeTab({ sessionId, onPropertyAdded }: HomeTabProps) {
+function isPropertyGuru(value: string): boolean {
+  try {
+    return new URL(value).hostname.endsWith('propertyguru.com.my');
+  } catch {
+    return false;
+  }
+}
+
+export default function HomeTab({ sessionId, nickname, onPropertyAdded }: HomeTabProps) {
   const [url, setUrl] = useState('');
   const [phase, setPhase] = useState<ScrapePhase>('idle');
   const [error, setError] = useState('');
 
   const isLoading = ['validating', 'opening', 'reading', 'photos'].includes(phase);
+  const showPGWarning = url.trim() && isPropertyGuru(url);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -51,8 +61,8 @@ export default function HomeTab({ sessionId, onPropertyAdded }: HomeTabProps) {
     setPhase('opening');
 
     try {
-      const recaptchaToken = 'dev-bypass'; // TODO: wire NEXT_PUBLIC_RECAPTCHA_SITE_KEY
-      const result = await scrapeProperty({ url, sessionId, recaptchaToken });
+      const recaptchaToken = 'dev-bypass';
+      const result = await scrapeProperty({ url, sessionId, recaptchaToken, nickname });
 
       if (result.property) {
         setPhase('done');
@@ -75,13 +85,24 @@ export default function HomeTab({ sessionId, onPropertyAdded }: HomeTabProps) {
       style={{ background: '#FAF8FF' }}
     >
       <div className="w-full max-w-xl space-y-6">
-        <div className="space-y-1">
+        <div className="space-y-2">
           <h2 className="text-2xl font-semibold" style={{ color: '#282F41' }}>
             Paste your property link
           </h2>
-          <p className="text-sm" style={{ color: '#5A6280' }}>
-            Supports PropertyGuru, Mudah &amp; iProperty
-          </p>
+          <div className="flex flex-wrap gap-2 text-xs">
+            <span className="flex items-center gap-1 px-2 py-1 rounded-full font-medium"
+              style={{ background: '#F0FDF4', color: '#16A34A', border: '1px solid #BBF7D0' }}>
+              ✓ iProperty
+            </span>
+            <span className="flex items-center gap-1 px-2 py-1 rounded-full font-medium"
+              style={{ background: '#F0FDF4', color: '#16A34A', border: '1px solid #BBF7D0' }}>
+              ✓ Mudah.my
+            </span>
+            <span className="flex items-center gap-1 px-2 py-1 rounded-full font-medium"
+              style={{ background: '#FEF2F2', color: '#DC2626', border: '1px solid #FECACA' }}>
+              ✗ PropertyGuru (Cloudflare block)
+            </span>
+          </div>
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-3">
@@ -104,6 +125,21 @@ export default function HomeTab({ sessionId, onPropertyAdded }: HomeTabProps) {
             onFocus={e => { e.currentTarget.style.borderColor = '#265CE4'; e.currentTarget.style.boxShadow = '0 0 0 3px rgba(38,92,228,0.08)'; }}
             onBlur={e => { e.currentTarget.style.borderColor = '#E2DFF0'; e.currentTarget.style.boxShadow = 'none'; }}
           />
+
+          {/* PropertyGuru bot warning */}
+          {showPGWarning && (
+            <div
+              className="flex items-start gap-2.5 px-3 py-2.5 rounded-lg text-xs"
+              style={{ background: '#FFFBEB', border: '1px solid #FDE68A', color: '#92400E' }}
+            >
+              <svg className="w-4 h-4 shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.007v.008H12v-.008z" />
+              </svg>
+              <span>
+                <b>Heads up:</b> PropertyGuru is currently protected by Cloudflare bot detection. Scraping may return incomplete data. We&apos;re working on a fix!
+              </span>
+            </div>
+          )}
 
           {error && <p className="text-sm" style={{ color: '#DC2626' }}>{error}</p>}
 

@@ -65,12 +65,13 @@ async def scrape_property(body: ScrapeRequest) -> ScrapeResponse:
         id=str(uuid.uuid4()),
         url=body.url,
         addedAt=datetime.now(timezone.utc),
+        scrapedBy=body.nickname,
         **scraped,
     )
 
     await sessions_col().update_one(
         {"_id": body.sessionId},
-        {"$push": {"properties": prop.model_dump()}},
+        {"$push": {"properties": {"$each": [prop.model_dump()], "$position": 0}}},
     )
 
     return ScrapeResponse(success=True, property=prop)
