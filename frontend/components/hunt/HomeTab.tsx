@@ -40,6 +40,14 @@ function isPropertyGuru(value: string): boolean {
   }
 }
 
+function isIProperty(value: string): boolean {
+  try {
+    return new URL(value).hostname.endsWith('iproperty.com.my');
+  } catch {
+    return false;
+  }
+}
+
 export default function HomeTab({ sessionId, nickname, onPropertyAdded }: HomeTabProps) {
   const [url, setUrl] = useState('');
   const [phase, setPhase] = useState<ScrapePhase>('idle');
@@ -73,6 +81,7 @@ export default function HomeTab({ sessionId, nickname, onPropertyAdded }: HomeTa
 
   const isLoading = ['validating', 'opening', 'reading', 'photos'].includes(phase);
   const showPGWarning = url.trim() && isPropertyGuru(url);
+  const showIPropWarning = url.trim() && isIProperty(url);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -146,11 +155,11 @@ export default function HomeTab({ sessionId, nickname, onPropertyAdded }: HomeTa
           <div className="flex flex-wrap gap-2 text-xs">
             <span className="flex items-center gap-1 px-2 py-1 rounded-full font-medium"
               style={{ background: '#F0FDF4', color: '#16A34A', border: '1px solid #BBF7D0' }}>
-              ✓ iProperty
+              ✓ Mudah.my
             </span>
             <span className="flex items-center gap-1 px-2 py-1 rounded-full font-medium"
-              style={{ background: '#F0FDF4', color: '#16A34A', border: '1px solid #BBF7D0' }}>
-              ✓ Mudah.my
+              style={{ background: '#FEF2F2', color: '#DC2626', border: '1px solid #FECACA' }}>
+              ✗ iProperty (Akamai block)
             </span>
             <span className="flex items-center gap-1 px-2 py-1 rounded-full font-medium"
               style={{ background: '#FEF2F2', color: '#DC2626', border: '1px solid #FECACA' }}>
@@ -193,6 +202,20 @@ export default function HomeTab({ sessionId, nickname, onPropertyAdded }: HomeTa
               </svg>
               <span>
                 <b>Heads up:</b> PropertyGuru is currently protected by Cloudflare bot detection. Scraping may return incomplete data.
+              </span>
+            </div>
+          )}
+
+          {showIPropWarning && (
+            <div
+              className="flex items-start gap-2.5 px-3 py-2.5 rounded-lg text-xs"
+              style={{ background: '#FFFBEB', border: '1px solid #FDE68A', color: '#92400E' }}
+            >
+              <svg className="w-4 h-4 shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.007v.008H12v-.008z" />
+              </svg>
+              <span>
+                <b>Heads up:</b> iProperty is currently protected by Akamai bot detection. Scraping may return incomplete data.
               </span>
             </div>
           )}
