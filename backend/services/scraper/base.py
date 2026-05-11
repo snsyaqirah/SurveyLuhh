@@ -47,10 +47,20 @@ def make_driver() -> webdriver.Remote | webdriver.Chrome:
     opts.add_argument("--no-sandbox")
     opts.add_argument("--disable-dev-shm-usage")
     opts.add_argument("--disable-gpu")
-    opts.add_argument("--window-size=1920,1080")
+    opts.add_argument("--window-size=1280,720")
     opts.add_argument("--disable-popup-blocking")
-    # Suppress automation indicators that Cloudflare and other WAFs detect
     opts.add_argument("--disable-blink-features=AutomationControlled")
+    # Reduce memory footprint for constrained cloud environments
+    opts.add_argument("--single-process")
+    opts.add_argument("--no-zygote")
+    opts.add_argument("--disable-extensions")
+    opts.add_argument("--disable-background-networking")
+    opts.add_argument("--disable-sync")
+    opts.add_argument("--disable-translate")
+    opts.add_argument("--disable-default-apps")
+    opts.add_argument("--mute-audio")
+    # Block image downloads — src attributes remain in HTML so scraping still works
+    opts.add_argument("--blink-settings=imagesEnabled=false")
     opts.add_argument(
         "user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
         "AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36"
@@ -65,7 +75,7 @@ def make_driver() -> webdriver.Remote | webdriver.Chrome:
         driver = webdriver.Remote(command_executor=remote_url, options=opts)
     else:
         driver = webdriver.Chrome(options=opts)
-    driver.set_page_load_timeout(30)
+    driver.set_page_load_timeout(60)
     # Patch navigator.webdriver via CDP (works with Selenium Grid 4 + standalone-chrome)
     try:
         driver.execute_cdp_cmd("Page.addScriptToEvaluateOnNewDocument", {
