@@ -18,7 +18,7 @@ def fetch_html(url: str, timeout: int = 30) -> str:
     from urllib.parse import urlparse
     base_url = "{0}://{1}".format(*urlparse(url)[:2])
 
-    with curl_requests.Session(impersonate="chrome130") as session:
+    with curl_requests.Session(impersonate="chrome124") as session:
         # Warm up: hit the homepage so Akamai/CDN sets session cookies
         try:
             session.get(
