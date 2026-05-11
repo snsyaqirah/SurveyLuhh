@@ -2,13 +2,13 @@
 import re
 import json
 from bs4 import BeautifulSoup
-from .base import fetch_html
+from .base import _fetch_with_selenium
 
 _ICON_RE = re.compile(r'^[\w]+-[\w-]+$')
 
 
 def scrape(url: str) -> dict:
-    html = fetch_html(url)
+    html = _fetch_with_selenium(url, timeout=60)
     soup = BeautifulSoup(html, "html.parser")
     nd = _from_next_data(soup)
     page_text = soup.get_text(separator="\n")
