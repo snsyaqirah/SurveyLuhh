@@ -1,42 +1,50 @@
-"""iProperty Malaysia scraper — httpx + BeautifulSoup, __NEXT_DATA__ primary, no Chrome."""
+"""iProperty Malaysia scraper — Next.js JSON API primary, HTML+BS4 fallback."""
 import re
 import json
 from bs4 import BeautifulSoup
 from .base import fetch_html
+from curl_cffi import requests as curl_requests
 
 _ICON_RE = re.compile(r'^[\w]+-[\w-]+$')
 
 
 def scrape(url: str) -> dict:
-    html = fetch_html(url, timeout=30)
-    soup = BeautifulSoup(html, "html.parser")
-    nd = _from_next_data(soup)
-    page_text = soup.get_text(separator="\n")
+    # Try /_next/data/ JSON endpoint first — bypasses Akamai HTML page protection
+    nd = _try_nextdata_json(url)
+    soup: BeautifulSoup | None = None
+    page_text = ""
 
-    h1_el = soup.find("h1")
-    title        = nd.get("title") or (h1_el.get_text(strip=True) if h1_el else "")
-    price        = nd.get("price") or _scrape_price(soup, page_text)
-    bedrooms     = nd.get("bedrooms") or _first_int(page_text, r'(\d+)\s*[Bb]eds?\b')
-    bathrooms    = nd.get("bathrooms") or _first_int(page_text, r'(\d+)\s*[Bb]aths?\b')
-    sqft         = nd.get("sqft") or _extract_sqft(page_text)
-    parking      = nd.get("parking") or _first_int(page_text, r'(\d+)\s*(?:parking\s*lots?|car\s*parks?|car\s*park\b)')
-    description  = nd.get("description") or _extract_description(soup, page_text)
-    facilities   = nd.get("facilities") or _extract_facilities(soup, page_text, description)
-    agent_name   = nd.get("agentName") or _extract_agent_name(soup, page_text)
-    agent_phone  = nd.get("agentPhone") or _extract_phone(soup, page_text)
-    agent_agency = nd.get("agentAgency") or _extract_agent_agency(soup)
+    if not nd:
+        html = fetch_html(url, timeout=30)
+        soup = BeautifulSoup(html, "html.parser")
+        nd = _from_next_data(soup)
+        page_text = soup.get_text(separator="\n")
 
-    images: list[str] = []
-    for img in soup.find_all("img"):
-        src = img.get("data-src") or img.get("src") or ""
-        if _is_listing_image(src):
-            images.append(src)
-    for link in soup.find_all("link"):
-        if "preload" in (link.get("rel") or []) and link.get("as") == "image":
-            href = link.get("href", "")
-            if _is_listing_image(href):
-                images.insert(0, href)
-    images = _dedup(images)[:20]
+    h1_el = soup.find("h1") if soup else None
+    title       = nd.get("title") or (h1_el.get_text(strip=True) if h1_el else "")
+    price       = nd.get("price") or (_scrape_price(soup, page_text) if soup else "")
+    bedrooms    = nd.get("bedrooms") or _first_int(page_text, r'(\d+)\s*[Bb]eds?\b')
+    bathrooms   = nd.get("bathrooms") or _first_int(page_text, r'(\d+)\s*[Bb]aths?\b')
+    sqft        = nd.get("sqft") or _extract_sqft(page_text)
+    parking     = nd.get("parking") or _first_int(page_text, r'(\d+)\s*(?:parking\s*lots?|car\s*parks?|car\s*park\b)')
+    description = nd.get("description") or (_extract_description(soup, page_text) if soup else "")
+    facilities  = nd.get("facilities") or (_extract_facilities(soup, page_text, description) if soup else [])
+    agent_name  = nd.get("agentName") or (_extract_agent_name(soup, page_text) if soup else "")
+    agent_phone = nd.get("agentPhone") or (_extract_phone(soup, page_text) if soup else "")
+    agent_agency = nd.get("agentAgency") or (_extract_agent_agency(soup) if soup else "")
+
+    images: list[str] = nd.get("images") or []
+    if not images and soup:
+        for img in soup.find_all("img"):
+            src = img.get("data-src") or img.get("src") or ""
+            if _is_listing_image(src):
+                images.append(src)
+        for link in soup.find_all("link"):
+            if "preload" in (link.get("rel") or []) and link.get("as") == "image":
+                href = link.get("href", "")
+                if _is_listing_image(href):
+                    images.insert(0, href)
+        images = _dedup(images)[:20]
 
     nearby = _extract_nearby(description) or _extract_nearby(page_text)
 
@@ -57,6 +65,64 @@ def scrape(url: str) -> dict:
     }
 
 
+# ── Next.js JSON API ───────────────────────────────────────────────────────────
+
+def _try_nextdata_json(url: str) -> dict:
+    """
+    Fetch listing data via Next.js /_next/data/[buildId]/[path].json.
+    This API endpoint is often less restricted than the HTML page by Akamai.
+    Steps: (1) get buildId from homepage, (2) fetch JSON data endpoint.
+    """
+    from urllib.parse import urlparse
+
+    parsed = urlparse(url)
+    base = f"{parsed.scheme}://{parsed.netloc}"
+    path = parsed.path.rstrip('/')
+
+    with curl_requests.Session(impersonate="chrome124") as session:
+        # Step 1 — get buildId from homepage (usually lighter bot protection)
+        build_id = None
+        try:
+            r = session.get(
+                base + "/",
+                timeout=15,
+                headers={
+                    "Accept": "text/html,application/xhtml+xml,*/*;q=0.8",
+                    "Accept-Language": "en-US,en;q=0.9,ms-MY;q=0.8",
+                },
+            )
+            if r.ok:
+                m = re.search(r'"buildId":"([^"]+)"', r.text)
+                if m:
+                    build_id = m.group(1)
+        except Exception:
+            pass
+
+        if not build_id:
+            return {}
+
+        # Step 2 — fetch JSON data endpoint
+        json_url = f"{base}/_next/data/{build_id}{path}.json"
+        try:
+            r2 = session.get(
+                json_url,
+                timeout=30,
+                headers={
+                    "Accept": "application/json, */*",
+                    "Referer": url,
+                    "Accept-Language": "en-US,en;q=0.9,ms-MY;q=0.8",
+                },
+            )
+            if r2.ok:
+                page_props = r2.json().get("pageProps", {})
+                if page_props:
+                    return _extract_from_props(page_props)
+        except Exception:
+            pass
+
+    return {}
+
+
 # ── __NEXT_DATA__ extraction ───────────────────────────────────────────────────
 
 def _from_next_data(soup: BeautifulSoup) -> dict:
@@ -67,9 +133,13 @@ def _from_next_data(soup: BeautifulSoup) -> dict:
         raw = json.loads(script.string)
     except Exception:
         return {}
-
     page_props = raw.get("props", {}).get("pageProps", {})
-    page_data  = page_props.get("pageData") or {}
+    return _extract_from_props(page_props)
+
+
+def _extract_from_props(page_props: dict) -> dict:
+    """Extract listing fields from Next.js pageProps (works for both HTML and JSON API)."""
+    page_data = page_props.get("pageData") or {}
     page_data_inner = page_data.get("data") if isinstance(page_data, dict) else {}
 
     listing = None
@@ -92,7 +162,7 @@ def _from_next_data(soup: BeautifulSoup) -> dict:
             break
 
     if not listing:
-        listing = _deep_find(raw, lambda d: d.get("title") and d.get("attributes")) or {}
+        listing = _deep_find(page_props, lambda d: d.get("title") and d.get("attributes")) or {}
 
     result: dict = {}
     result["title"] = listing.get("title") or listing.get("name") or ""
@@ -129,6 +199,19 @@ def _from_next_data(soup: BeautifulSoup) -> dict:
         or listing.get("listingDescription")
         or ""
     )
+
+    # Images from JSON API (array of URLs or objects)
+    photos_raw = listing.get("photos") or listing.get("images") or listing.get("media") or []
+    if isinstance(photos_raw, list):
+        imgs = []
+        for p in photos_raw:
+            if isinstance(p, str):
+                imgs.append(p)
+            elif isinstance(p, dict):
+                src = p.get("url") or p.get("src") or p.get("href") or ""
+                if src:
+                    imgs.append(src)
+        result["images"] = imgs[:20]
 
     agent = listing.get("agent") or listing.get("advertiser") or {}
     if isinstance(agent, dict):
@@ -177,7 +260,6 @@ def _scrape_price(soup: BeautifulSoup, page_text: str) -> str:
 # ── Description ───────────────────────────────────────────────────────────────
 
 def _extract_description(soup: BeautifulSoup, page_text: str) -> str:
-    # [da-id] elements
     for el in soup.find_all(attrs={"da-id": True}):
         da_id = (el.get("da-id") or "").lower()
         if "description" in da_id or "about" in da_id:
@@ -185,7 +267,6 @@ def _extract_description(soup: BeautifulSoup, page_text: str) -> str:
             if len(t) > 30:
                 return t
 
-    # Class-based
     for cls_re in [r"ListingDescription", r"listing-description", r"DescriptionContent", r"description-content"]:
         el = soup.find(class_=re.compile(cls_re))
         if el:
@@ -206,7 +287,6 @@ def _extract_description(soup: BeautifulSoup, page_text: str) -> str:
         if len(t) > 30:
             return t
 
-    # Page-text regex
     m = re.search(
         r'(?:^|\n)(?:About|About this (?:property|unit)|Description|Listing Description)\s*\n'
         r'([\s\S]{50,1200}?)(?=\n{2,}|\nFacilities|\nCommon|\nAgent|\nListed by|\nContact|\Z)',
