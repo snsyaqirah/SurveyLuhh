@@ -68,7 +68,7 @@ export default function NicknameModal({ onConfirm, existingMembers = [] }: Nickn
             type="text"
             value={value}
             onChange={e => setValue(e.target.value)}
-            placeholder="e.g. Syaqi, Qira..."
+            placeholder="e.g. John Doe, John Cena, etc."
             maxLength={30}
             autoFocus={existingMembers.length === 0}
             className="w-full px-4 py-3 rounded-xl text-sm outline-none transition-all"
