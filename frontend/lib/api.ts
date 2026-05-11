@@ -2,6 +2,19 @@ import type { Property, PropertyStatus, ScrapeRequest, ScrapeResponse, Session }
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:8000';
 
+export async function checkHealth(): Promise<boolean> {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), 5000);
+  try {
+    const res = await fetch(`${API_BASE}/health`, { signal: controller.signal });
+    clearTimeout(timer);
+    return res.ok;
+  } catch {
+    clearTimeout(timer);
+    return false;
+  }
+}
+
 export async function createSession(): Promise<{ sessionId: string }> {
   const res = await fetch(`${API_BASE}/api/sessions`, { method: 'POST' });
   if (!res.ok) throw new Error('Failed to create session');

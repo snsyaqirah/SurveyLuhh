@@ -1,103 +1,74 @@
-"""Mudah.my scraper — data-testid DOM selectors primary, __NEXT_DATA__ fallback."""
+"""Mudah.my scraper — httpx + BeautifulSoup, no Selenium, no Chrome."""
 import re
 import json
-import time
 from bs4 import BeautifulSoup
-from selenium.webdriver.common.by import By
-from selenium.webdriver.support.ui import WebDriverWait
-from selenium.webdriver.support import expected_conditions as EC
-from .base import make_driver
+from .base import fetch_html
 
 
 def scrape(url: str) -> dict:
-    driver = make_driver()
-    try:
-        driver.get(url)
-        try:
-            WebDriverWait(driver, 15).until(
-                EC.presence_of_element_located((By.CSS_SELECTOR, "[data-testid='ad-price']"))
-            )
-        except Exception:
-            pass
-        time.sleep(1)
+    html = fetch_html(url)
+    soup = BeautifulSoup(html, "html.parser")
+    nd = _from_next_data(soup)
 
-        soup = BeautifulSoup(driver.page_source, "html.parser")
-        nd = _from_next_data(soup)
+    title = (
+        nd.get("title")
+        or _attr_text(soup, "description-header")
+        or _attr_text(soup, "ad-title")
+        or ""
+    )
 
-        # ── Title ──────────────────────────────────────────────────────────
-        title = (
-            nd.get("title")
-            or _attr_text(soup, "description-header")
-            or _attr_text(soup, "ad-title")
-            or ""
-        )
+    price_main = nd.get("price") or _attr_text(soup, "ad-price")
+    if price_main and "month" not in price_main.lower():
+        price_el = soup.find(attrs={"data-testid": "ad-price"})
+        if price_el:
+            nxt = price_el.find_next_sibling("span")
+            if nxt and "month" in nxt.get_text().lower():
+                price_main = f"{price_main}/month"
+    price_main = re.sub(r'\s+per\s+month', '/month', price_main or '', flags=re.IGNORECASE)
+    price = price_main or ""
 
-        # ── Price ──────────────────────────────────────────────────────────
-        price_main = nd.get("price") or _attr_text(soup, "ad-price")
-        if price_main and "month" not in price_main.lower():
-            # Check sibling span for "per month"
-            price_el = soup.find(attrs={"data-testid": "ad-price"})
-            if price_el:
-                nxt = price_el.find_next_sibling("span")
-                if nxt and "month" in nxt.get_text().lower():
-                    price_main = f"{price_main}/month"
-        # Normalise: "RM 1,300 per month" → "RM 1,300/month"
-        price_main = re.sub(r'\s+per\s+month', '/month', price_main or '', flags=re.IGNORECASE)
-        price = price_main or ""
+    sqft      = nd.get("sqft")      or _extract_number(_attr_text(soup, "ad-detail-size"))
+    bedrooms  = nd.get("bedrooms")  or _safe_int(_extract_number(_attr_text(soup, "ad-detail-bed")))
+    bathrooms = nd.get("bathrooms") or _safe_int(_extract_number(_attr_text(soup, "ad-detail-bath")))
+    parking   = nd.get("parking")   or _extract_carpark(soup)
 
-        # ── Stats ──────────────────────────────────────────────────────────
-        sqft      = nd.get("sqft")      or _extract_number(_attr_text(soup, "ad-detail-size"))
-        bedrooms  = nd.get("bedrooms")  or _safe_int(_extract_number(_attr_text(soup, "ad-detail-bed")))
-        bathrooms = nd.get("bathrooms") or _safe_int(_extract_number(_attr_text(soup, "ad-detail-bath")))
-        parking   = nd.get("parking")   or _extract_carpark(soup)
+    description = nd.get("description") or ""
+    if not description:
+        desc_el = soup.find(id="property-adview-description")
+        if desc_el:
+            description = _clean_description(desc_el)
+    elif description:
+        description = _clean_description_text(description)
 
-        # ── Description ────────────────────────────────────────────────────
-        description = nd.get("description") or ""
-        if not description:
-            desc_el = soup.find(id="property-adview-description")
-            if desc_el:
-                description = _clean_description(desc_el)
-        elif description:
-            description = _clean_description_text(description)
+    facilities = nd.get("facilities") or _extract_facilities(soup)
+    nearby = _extract_nearby_amenities(soup) or _extract_nearby_from_desc(description)
 
-        # ── Facilities ─────────────────────────────────────────────────────
-        facilities = nd.get("facilities") or _extract_facilities(soup)
+    images: list[str] = list(nd.get("imageUrls", []))
+    if not images:
+        images = _extract_images(soup)
+    images = _dedup(images)[:20]
 
-        # ── Nearby amenities ───────────────────────────────────────────────
-        nearby = _extract_nearby_amenities(soup)
-        if not nearby:
-            nearby = _extract_nearby_from_desc(description)
+    agent_name  = nd.get("agentName")  or _extract_agent_name(soup)
+    agent_phone = nd.get("agentPhone") or _extract_phone(soup, description)
 
-        # ── Images ─────────────────────────────────────────────────────────
-        images: list[str] = list(nd.get("imageUrls", []))
-        if not images:
-            images = _extract_images(soup)
-        images = _dedup(images)[:20]
-
-        # ── Agent ──────────────────────────────────────────────────────────
-        agent_name  = nd.get("agentName")  or _extract_agent_name(soup)
-        agent_phone = nd.get("agentPhone") or _extract_phone(soup, driver, description)
-
-        return {
-            "title":       title,
-            "price":       price,
-            "images":      images,
-            "description": description,
-            "details": {
-                "sqft":      sqft,
-                "bedrooms":  bedrooms,
-                "bathrooms": bathrooms,
-                "parking":   parking,
-            },
-            "facilities":   facilities,
-            "nearbyPlaces": nearby,
-            "agent":        {"name": agent_name, "phone": agent_phone, "agency": ""},
-        }
-    finally:
-        driver.quit()
+    return {
+        "title":       title,
+        "price":       price,
+        "images":      images,
+        "description": description,
+        "details": {
+            "sqft":      sqft,
+            "bedrooms":  bedrooms,
+            "bathrooms": bathrooms,
+            "parking":   parking,
+        },
+        "facilities":   facilities,
+        "nearbyPlaces": nearby,
+        "agent":        {"name": agent_name, "phone": agent_phone, "agency": ""},
+    }
 
 
-# ── __NEXT_DATA__ (best-effort, may be empty) ─────────────────────────────
+# ── __NEXT_DATA__ ─────────────────────────────────────────────────────────────
 
 def _from_next_data(soup: BeautifulSoup) -> dict:
     script = soup.find("script", id="__NEXT_DATA__")
@@ -158,7 +129,7 @@ def _from_next_data(soup: BeautifulSoup) -> dict:
     return result
 
 
-# ── DOM helpers ───────────────────────────────────────────────────────────
+# ── DOM helpers ───────────────────────────────────────────────────────────────
 
 def _attr_text(soup: BeautifulSoup, testid: str) -> str:
     el = soup.find(attrs={"data-testid": testid})
@@ -166,13 +137,11 @@ def _attr_text(soup: BeautifulSoup, testid: str) -> str:
 
 
 def _extract_number(text: str) -> str:
-    """'1,147 sq.ft' → '1147'"""
     m = re.search(r'[\d,]+', text)
     return m.group(0).replace(",", "") if m else ""
 
 
 def _extract_carpark(soup: BeautifulSoup) -> int:
-    """Find 'Carpark' label in property details grid and read adjacent value."""
     for p in soup.find_all("p"):
         if p.get_text(strip=True).lower() in ("carpark", "car park", "parking"):
             parent = p.find_parent()
@@ -204,12 +173,10 @@ def _extract_images(soup: BeautifulSoup) -> list[str]:
 
 
 def _extract_nearby_amenities(soup: BeautifulSoup) -> list[str]:
-    """Extract place names from the Nearby Amenities accordion."""
     nearby: list[str] = []
     for content in soup.select("[class*='ContentContainer']"):
         for base in content.select("[class*='BaseContent']"):
-            ps = base.find_all("p")
-            for p in ps:
+            for p in base.find_all("p"):
                 text = p.get_text(strip=True)
                 if text and text != "•" and len(text) > 4:
                     nearby.append(text)
@@ -234,35 +201,25 @@ def _extract_agent_name(soup: BeautifulSoup) -> str:
     return ""
 
 
-def _extract_phone(soup: BeautifulSoup, driver, description: str) -> str:
-    # Call button — only use if unmasked (no asterisks)
+def _extract_phone(soup: BeautifulSoup, description: str) -> str:
     for btn in soup.find_all("button", attrs={"data-label": "call"}):
         text = btn.get_text(strip=True).replace("-", "").replace(" ", "")
         if re.match(r'^0\d{8,10}$', text):
             return text
 
-    # Description text (agents sometimes embed their number)
     if description:
         m = re.search(r'(?:0[1-9]\d{7,9}|\+?60\d{8,10})', description.replace(" ", "").replace("-", ""))
         if m:
             return m.group(0)
 
-    # Full page text
-    try:
-        page_text = driver.find_element(By.TAG_NAME, "body").text
-        m = re.search(r'(?:0[1-9]\d{7,9}|\+?60\d{8,10})', page_text.replace(" ", "").replace("-", ""))
-        if m:
-            return m.group(0)
-    except Exception:
-        pass
-
-    return ""
+    page_text = soup.get_text()
+    m = re.search(r'(?:0[1-9]\d{7,9}|\+?60\d{8,10})', page_text.replace(" ", "").replace("-", ""))
+    return m.group(0) if m else ""
 
 
-# ── Description cleaning ─────────────────────────────────────────────────
+# ── Description cleaning ──────────────────────────────────────────────────────
 
 def _clean_description(el) -> str:
-    """Convert BeautifulSoup element to clean text: <br> → newline, strip leading dashes."""
     for br in el.find_all("br"):
         br.replace_with("\n")
     raw = el.get_text(separator="", strip=False)
@@ -279,7 +236,7 @@ def _clean_description_text(text: str) -> str:
     return "\n".join(lines)
 
 
-# ── Misc ──────────────────────────────────────────────────────────────────
+# ── Misc ──────────────────────────────────────────────────────────────────────
 
 def _is_mudah_image(src: str) -> bool:
     if not src or src.endswith(".gif") or src.endswith(".svg"):

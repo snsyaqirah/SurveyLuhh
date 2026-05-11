@@ -62,7 +62,7 @@ export default function PropertyDetail({ property, sessionId, onDelete }: Proper
           <h2 className="text-lg sm:text-xl font-semibold leading-snug" style={{ color: '#282F41' }}>
             {property.title}
           </h2>
-          <div className="flex items-center gap-1.5 shrink-0 no-print">
+          <div className="flex items-center gap-1.5 flex-wrap justify-end shrink-0 no-print">
             {/* Heart / Favorite */}
             <button
               onClick={toggleFavorite}

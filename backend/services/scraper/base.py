@@ -1,9 +1,34 @@
 import os
+import httpx
 from selenium import webdriver
 from selenium.webdriver.chrome.options import Options
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
+
+_BROWSER_HEADERS = {
+    "User-Agent": (
+        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+        "AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36"
+    ),
+    "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8",
+    "Accept-Language": "en-US,en;q=0.9",
+    "Accept-Encoding": "gzip, deflate",
+    "Connection": "keep-alive",
+    "Upgrade-Insecure-Requests": "1",
+    "Sec-Fetch-Dest": "document",
+    "Sec-Fetch-Mode": "navigate",
+    "Sec-Fetch-Site": "none",
+    "Cache-Control": "max-age=0",
+}
+
+
+def fetch_html(url: str, timeout: int = 30) -> str:
+    """Lightweight page fetch — no JavaScript, no Chrome, no memory spike."""
+    with httpx.Client(headers=_BROWSER_HEADERS, timeout=timeout, follow_redirects=True) as client:
+        resp = client.get(url)
+        resp.raise_for_status()
+        return resp.text
 
 
 def make_stealth_driver():

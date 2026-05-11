@@ -1,8 +1,8 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import type { Property } from '@/lib/types';
-import { scrapeProperty } from '@/lib/api';
+import { scrapeProperty, checkHealth } from '@/lib/api';
 
 const SUPPORTED_DOMAINS = ['propertyguru.com.my', 'mudah.my', 'iproperty.com.my'];
 
@@ -13,6 +13,7 @@ interface HomeTabProps {
 }
 
 type ScrapePhase = 'idle' | 'validating' | 'opening' | 'reading' | 'photos' | 'done' | 'error';
+type BackendStatus = 'checking' | 'waking' | 'live' | 'unknown';
 
 const PHASE_MESSAGES: Partial<Record<ScrapePhase, string>> = {
   validating: 'Validating link...',
@@ -43,6 +44,32 @@ export default function HomeTab({ sessionId, nickname, onPropertyAdded }: HomeTa
   const [url, setUrl] = useState('');
   const [phase, setPhase] = useState<ScrapePhase>('idle');
   const [error, setError] = useState('');
+  const [backendStatus, setBackendStatus] = useState<BackendStatus>('checking');
+
+  // Proactively wake the backend on mount
+  useEffect(() => {
+    let cancelled = false;
+    let pollTimer: ReturnType<typeof setTimeout> | null = null;
+
+    async function ping() {
+      const alive = await checkHealth();
+      if (cancelled) return;
+      if (alive) {
+        setBackendStatus('live');
+        // Hide the "ready" badge after 3s
+        setTimeout(() => { if (!cancelled) setBackendStatus('unknown'); }, 3000);
+      } else {
+        setBackendStatus('waking');
+        pollTimer = setTimeout(ping, 10_000);
+      }
+    }
+
+    ping();
+    return () => {
+      cancelled = true;
+      if (pollTimer) clearTimeout(pollTimer);
+    };
+  }, []);
 
   const isLoading = ['validating', 'opening', 'reading', 'photos'].includes(phase);
   const showPGWarning = url.trim() && isPropertyGuru(url);
@@ -81,10 +108,47 @@ export default function HomeTab({ sessionId, nickname, onPropertyAdded }: HomeTa
 
   return (
     <div
-      className="flex flex-col items-center justify-center h-full px-4"
+      className="flex flex-col items-center justify-center h-full px-4 py-6"
       style={{ background: '#FAF8FF' }}
     >
-      <div className="w-full max-w-xl space-y-6">
+      <div className="w-full max-w-xl space-y-5">
+
+        {/* Backend status banner */}
+        {backendStatus === 'checking' && (
+          <div
+            className="flex items-center gap-2.5 px-4 py-3 rounded-xl text-sm"
+            style={{ background: '#F3F0FF', border: '1px solid #D6CCFF', color: '#5A6280' }}
+          >
+            <div className="w-3.5 h-3.5 rounded-full border-2 animate-spin shrink-0"
+              style={{ borderColor: 'rgba(124,58,237,0.2)', borderTopColor: '#7C3AED' }} />
+            Checking backend status...
+          </div>
+        )}
+        {backendStatus === 'waking' && (
+          <div
+            className="flex items-start gap-2.5 px-4 py-3 rounded-xl text-sm"
+            style={{ background: '#FFFBEB', border: '1px solid #FDE68A', color: '#92400E' }}
+          >
+            <div className="w-3.5 h-3.5 rounded-full border-2 animate-spin shrink-0 mt-0.5"
+              style={{ borderColor: 'rgba(217,119,6,0.2)', borderTopColor: '#D97706' }} />
+            <div>
+              <span className="font-semibold">Backend is waking up</span>
+              <span className="ml-1">— first load takes ~30–60s. You can paste your link and it&apos;ll run once ready.</span>
+            </div>
+          </div>
+        )}
+        {backendStatus === 'live' && (
+          <div
+            className="flex items-center gap-2 px-4 py-3 rounded-xl text-sm"
+            style={{ background: '#F0FDF4', border: '1px solid #BBF7D0', color: '#16A34A' }}
+          >
+            <svg className="w-4 h-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+            </svg>
+            Backend is live and ready!
+          </div>
+        )}
+
         <div className="space-y-2">
           <h2 className="text-2xl font-semibold" style={{ color: '#282F41' }}>
             Paste your property link
@@ -108,25 +172,27 @@ export default function HomeTab({ sessionId, nickname, onPropertyAdded }: HomeTa
         <form onSubmit={handleSubmit} className="space-y-3">
           <input
             type="url"
+            inputMode="url"
+            autoComplete="url"
             value={url}
             onChange={e => {
               setUrl(e.target.value);
               setError('');
               if (phase === 'error') setPhase('idle');
             }}
-            placeholder="https://www.propertyguru.com.my/property-listing/..."
+            placeholder="https://www.iproperty.com.my/property/..."
             disabled={isLoading}
-            className="w-full px-4 py-3 rounded-xl text-sm transition-all outline-none disabled:opacity-50"
+            className="w-full px-4 py-3.5 rounded-xl text-sm transition-all outline-none disabled:opacity-50"
             style={{
               background: '#FFFFFF',
               border: '1.5px solid #E2DFF0',
               color: '#282F41',
+              minHeight: '48px',
             }}
             onFocus={e => { e.currentTarget.style.borderColor = '#265CE4'; e.currentTarget.style.boxShadow = '0 0 0 3px rgba(38,92,228,0.08)'; }}
             onBlur={e => { e.currentTarget.style.borderColor = '#E2DFF0'; e.currentTarget.style.boxShadow = 'none'; }}
           />
 
-          {/* PropertyGuru bot warning */}
           {showPGWarning && (
             <div
               className="flex items-start gap-2.5 px-3 py-2.5 rounded-lg text-xs"
@@ -136,7 +202,7 @@ export default function HomeTab({ sessionId, nickname, onPropertyAdded }: HomeTa
                 <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.007v.008H12v-.008z" />
               </svg>
               <span>
-                <b>Heads up:</b> PropertyGuru is currently protected by Cloudflare bot detection. Scraping may return incomplete data. We&apos;re working on a fix!
+                <b>Heads up:</b> PropertyGuru is currently protected by Cloudflare bot detection. Scraping may return incomplete data.
               </span>
             </div>
           )}
@@ -146,8 +212,11 @@ export default function HomeTab({ sessionId, nickname, onPropertyAdded }: HomeTa
           <button
             type="submit"
             disabled={isLoading || !url.trim()}
-            className="w-full py-3 rounded-xl font-semibold text-sm text-white transition-all"
-            style={{ background: isLoading || !url.trim() ? 'rgba(38,92,228,0.3)' : '#265CE4' }}
+            className="w-full rounded-xl font-semibold text-sm text-white transition-all active:scale-[0.98]"
+            style={{
+              background: isLoading || !url.trim() ? 'rgba(38,92,228,0.3)' : '#265CE4',
+              minHeight: '48px',
+            }}
           >
             {isLoading ? 'Surveying...' : 'Survey Luhh'}
           </button>
@@ -182,7 +251,7 @@ export default function HomeTab({ sessionId, nickname, onPropertyAdded }: HomeTa
           </div>
         )}
 
-        <div className="flex items-center gap-3 pt-2">
+        <div className="flex items-center gap-3 pt-1">
           <div className="h-px flex-1" style={{ background: '#E2DFF0' }} />
           <span className="text-xs" style={{ color: '#C2C8D8' }}>Protected by reCAPTCHA</span>
           <div className="h-px flex-1" style={{ background: '#E2DFF0' }} />
