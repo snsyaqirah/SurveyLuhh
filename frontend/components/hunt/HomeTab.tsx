@@ -4,7 +4,8 @@ import { useState, useEffect } from 'react';
 import type { Property } from '@/lib/types';
 import { scrapeProperty, checkHealth } from '@/lib/api';
 
-const SUPPORTED_DOMAINS = ['propertyguru.com.my', 'mudah.my', 'iproperty.com.my'];
+const SUPPORTED_DOMAINS = ['mudah.my'];
+const BLOCKED_DOMAINS = ['propertyguru.com.my', 'iproperty.com.my'];
 
 interface HomeTabProps {
   sessionId: string;
@@ -27,6 +28,15 @@ function isValidPropertyUrl(value: string): boolean {
   try {
     const u = new URL(value);
     return SUPPORTED_DOMAINS.some(d => u.hostname.endsWith(d));
+  } catch {
+    return false;
+  }
+}
+
+function isBlockedDomain(value: string): boolean {
+  try {
+    const u = new URL(value);
+    return BLOCKED_DOMAINS.some(d => u.hostname.endsWith(d));
   } catch {
     return false;
   }
@@ -87,8 +97,14 @@ export default function HomeTab({ sessionId, nickname, onPropertyAdded }: HomeTa
     e.preventDefault();
     setError('');
 
+    if (isBlockedDomain(url)) {
+      setError('This site is blocked by bot protection and cannot be scraped from our server. Only Mudah.my is supported.');
+      setPhase('error');
+      return;
+    }
+
     if (!isValidPropertyUrl(url)) {
-      setError('Please paste a valid PropertyGuru, Mudah, or iProperty link.');
+      setError('Please paste a valid Mudah.my link.');
       return;
     }
 
@@ -179,7 +195,7 @@ export default function HomeTab({ sessionId, nickname, onPropertyAdded }: HomeTa
               setError('');
               if (phase === 'error') setPhase('idle');
             }}
-            placeholder="https://www.iproperty.com.my/property/..."
+            placeholder="https://www.mudah.my/..."
             disabled={isLoading}
             className="w-full px-4 py-3.5 rounded-xl text-sm transition-all outline-none disabled:opacity-50"
             style={{
