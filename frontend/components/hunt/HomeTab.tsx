@@ -56,11 +56,11 @@ export default function HomeTab({ sessionId, nickname, onPropertyAdded }: HomeTa
       if (cancelled) return;
       if (alive) {
         setBackendStatus('live');
-        // Hide the "ready" badge after 3s
-        setTimeout(() => { if (!cancelled) setBackendStatus('unknown'); }, 3000);
+        // Stop polling once live
       } else {
         setBackendStatus('waking');
-        pollTimer = setTimeout(ping, 10_000);
+        // Poll every 5s while waking
+        pollTimer = setTimeout(ping, 5_000);
       }
     }
 
@@ -113,46 +113,36 @@ export default function HomeTab({ sessionId, nickname, onPropertyAdded }: HomeTa
     >
       <div className="w-full max-w-xl space-y-5">
 
-        {/* Backend status banner */}
-        {backendStatus === 'checking' && (
-          <div
-            className="flex items-center gap-2.5 px-4 py-3 rounded-xl text-sm"
-            style={{ background: '#F3F0FF', border: '1px solid #D6CCFF', color: '#5A6280' }}
-          >
-            <div className="w-3.5 h-3.5 rounded-full border-2 animate-spin shrink-0"
-              style={{ borderColor: 'rgba(124,58,237,0.2)', borderTopColor: '#7C3AED' }} />
-            Checking backend status...
-          </div>
-        )}
-        {backendStatus === 'waking' && (
-          <div
-            className="flex items-start gap-2.5 px-4 py-3 rounded-xl text-sm"
-            style={{ background: '#FFFBEB', border: '1px solid #FDE68A', color: '#92400E' }}
-          >
-            <div className="w-3.5 h-3.5 rounded-full border-2 animate-spin shrink-0 mt-0.5"
-              style={{ borderColor: 'rgba(217,119,6,0.2)', borderTopColor: '#D97706' }} />
-            <div>
-              <span className="font-semibold">Backend is waking up</span>
-              <span className="ml-1">— first load takes ~30–60s. You can paste your link and it&apos;ll run once ready.</span>
-            </div>
-          </div>
-        )}
-        {backendStatus === 'live' && (
-          <div
-            className="flex items-center gap-2 px-4 py-3 rounded-xl text-sm"
-            style={{ background: '#F0FDF4', border: '1px solid #BBF7D0', color: '#16A34A' }}
-          >
-            <svg className="w-4 h-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
-            </svg>
-            Backend is live and ready!
-          </div>
-        )}
-
         <div className="space-y-2">
-          <h2 className="text-2xl font-semibold" style={{ color: '#282F41' }}>
-            Paste your property link
-          </h2>
+          <div className="flex items-center gap-2.5 flex-wrap">
+            <h2 className="text-2xl font-semibold" style={{ color: '#282F41' }}>
+              Paste your property link
+            </h2>
+            {/* Persistent backend status pill */}
+            {backendStatus === 'checking' && (
+              <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium"
+                style={{ background: '#F3F0FF', color: '#7C3AED', border: '1px solid #D6CCFF' }}>
+                <div className="w-2 h-2 rounded-full border animate-spin"
+                  style={{ borderColor: 'rgba(124,58,237,0.25)', borderTopColor: '#7C3AED' }} />
+                Checking...
+              </span>
+            )}
+            {backendStatus === 'waking' && (
+              <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium"
+                style={{ background: '#FFFBEB', color: '#B45309', border: '1px solid #FDE68A' }}>
+                <div className="w-2 h-2 rounded-full border animate-spin"
+                  style={{ borderColor: 'rgba(217,119,6,0.25)', borderTopColor: '#D97706' }} />
+                Waking up (~30–60s)
+              </span>
+            )}
+            {backendStatus === 'live' && (
+              <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium"
+                style={{ background: '#F0FDF4', color: '#16A34A', border: '1px solid #BBF7D0' }}>
+                <div className="w-2 h-2 rounded-full" style={{ background: '#22C55E' }} />
+                Live
+              </span>
+            )}
+          </div>
           <div className="flex flex-wrap gap-2 text-xs">
             <span className="flex items-center gap-1 px-2 py-1 rounded-full font-medium"
               style={{ background: '#F0FDF4', color: '#16A34A', border: '1px solid #BBF7D0' }}>

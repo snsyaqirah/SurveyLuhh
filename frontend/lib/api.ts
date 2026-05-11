@@ -4,7 +4,8 @@ const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:8000';
 
 export async function checkHealth(): Promise<boolean> {
   const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), 5000);
+  // 12s timeout — Render cold starts can take 10-15s for the first response
+  const timer = setTimeout(() => controller.abort(), 12_000);
   try {
     const res = await fetch(`${API_BASE}/health`, { signal: controller.signal });
     clearTimeout(timer);
