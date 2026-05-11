@@ -9,10 +9,57 @@ from selenium.webdriver.support import expected_conditions as EC
 
 
 def fetch_html(url: str, timeout: int = 30) -> str:
-    """Fetch with Chrome TLS impersonation — bypasses Akamai/bot detection without a real browser."""
-    resp = curl_requests.get(url, impersonate="chrome124", timeout=timeout)
-    resp.raise_for_status()
-    return resp.text
+    """
+    Fetch strategy:
+    1. curl_cffi (Chrome TLS impersonation) with homepage session warmup.
+    2. On 403/429/503, fall back to headless Chrome — slower but bypasses
+       IP-reputation blocks that curl_cffi can't overcome alone.
+    """
+    from urllib.parse import urlparse
+    base_url = "{0}://{1}".format(*urlparse(url)[:2])
+
+    with curl_requests.Session(impersonate="chrome130") as session:
+        # Warm up: hit the homepage so Akamai/CDN sets session cookies
+        try:
+            session.get(
+                base_url + "/",
+                timeout=10,
+                headers={"Accept": "text/html,application/xhtml+xml,*/*;q=0.8"},
+            )
+        except Exception:
+            pass
+
+        resp = session.get(
+            url,
+            timeout=timeout,
+            headers={
+                "Referer": base_url + "/",
+                "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8",
+                "Accept-Language": "en-US,en;q=0.9,ms-MY;q=0.8,ms;q=0.7",
+            },
+        )
+
+        if resp.ok:
+            return resp.text
+
+        if resp.status_code not in (403, 429, 503):
+            resp.raise_for_status()
+
+    # Lightweight path blocked — fall back to real headless Chrome
+    return _fetch_with_selenium(url, timeout)
+
+
+def _fetch_with_selenium(url: str, timeout: int = 60) -> str:
+    """Headless Chrome fallback for sites that block datacenter IPs at the HTTP layer."""
+    import time
+    driver = make_driver()
+    try:
+        driver.set_page_load_timeout(timeout)
+        driver.get(url)
+        time.sleep(2)
+        return driver.page_source
+    finally:
+        driver.quit()
 
 
 def make_stealth_driver():
