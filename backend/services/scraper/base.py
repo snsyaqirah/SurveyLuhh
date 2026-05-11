@@ -49,14 +49,19 @@ def fetch_html(url: str, timeout: int = 30) -> str:
     return _fetch_with_selenium(url, timeout)
 
 
-def _fetch_with_selenium(url: str, timeout: int = 60) -> str:
-    """Headless Chrome fallback for sites that block datacenter IPs at the HTTP layer."""
+def _fetch_with_selenium(url: str, timeout: int = 60, stealth: bool = False) -> str:
+    """
+    Chrome fallback for bot-protected sites.
+    stealth=True uses undetected-chromedriver + Xvfb (bypasses JS bot checks).
+    stealth=False uses regular headless Chrome (faster, less memory).
+    """
     import time
-    driver = make_driver()
+    driver = make_stealth_driver() if stealth else make_driver()
     try:
         driver.set_page_load_timeout(timeout)
         driver.get(url)
-        time.sleep(2)
+        # Give JS time to render (stealth needs a bit more)
+        time.sleep(4 if stealth else 2)
         return driver.page_source
     finally:
         driver.quit()

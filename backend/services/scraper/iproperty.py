@@ -8,7 +8,7 @@ _ICON_RE = re.compile(r'^[\w]+-[\w-]+$')
 
 
 def scrape(url: str) -> dict:
-    html = _fetch_with_selenium(url, timeout=60)
+    html = _fetch_with_selenium(url, timeout=60, stealth=True)
     soup = BeautifulSoup(html, "html.parser")
     nd = _from_next_data(soup)
     page_text = soup.get_text(separator="\n")
