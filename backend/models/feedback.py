@@ -14,6 +14,7 @@ class FeedbackCategory(str, Enum):
 class FeedbackSubmitRequest(BaseModel):
     category: FeedbackCategory
     message: str
+    suggestedFix: Optional[str] = None
 
 
 class FeedbackReplyRequest(BaseModel):
@@ -24,6 +25,7 @@ class Feedback(BaseModel):
     id: str
     category: FeedbackCategory
     message: str
+    suggestedFix: Optional[str] = None
     createdAt: datetime
     reply: Optional[str] = None
     repliedAt: Optional[datetime] = None

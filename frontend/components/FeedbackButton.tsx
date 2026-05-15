@@ -11,29 +11,54 @@ const CATEGORIES: { id: Category; emoji: string; label: string; desc: string }[]
   { id: 'testimonial', emoji: '⭐', label: 'Testimonial', desc: 'Share your experience'  },
 ];
 
+const FIELD_META: Record<Category, { messageLabel: string; messagePlaceholder: string; hasFixField: boolean }> = {
+  bug: {
+    messageLabel: 'Describe the issue*',
+    messagePlaceholder: 'What happened? What did you expect to happen?',
+    hasFixField: true,
+  },
+  enhancement: {
+    messageLabel: 'Your message*',
+    messagePlaceholder: 'What feature or improvement would you like to see?',
+    hasFixField: false,
+  },
+  general: {
+    messageLabel: 'Your message*',
+    messagePlaceholder: 'Share anything on your mind…',
+    hasFixField: false,
+  },
+  testimonial: {
+    messageLabel: 'Your message*',
+    messagePlaceholder: "How's your experience using SurveyLuhh?",
+    hasFixField: false,
+  },
+};
+
 const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:8000';
 
-async function postFeedback(category: Category, message: string) {
+async function postFeedback(category: Category, message: string, suggestedFix?: string) {
   const res = await fetch(`${API_BASE}/api/feedback`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ category, message }),
+    body: JSON.stringify({ category, message, suggestedFix: suggestedFix || undefined }),
   });
-  if (!res.ok) throw new Error('Failed to submit feedback');
+  if (!res.ok) throw new Error('Failed to submit');
 }
 
 export default function FeedbackButton() {
-  const [open, setOpen]           = useState(false);
-  const [category, setCategory]   = useState<Category | null>(null);
-  const [message, setMessage]     = useState('');
+  const [open, setOpen]             = useState(false);
+  const [category, setCategory]     = useState<Category | null>(null);
+  const [message, setMessage]       = useState('');
+  const [suggestedFix, setSuggestedFix] = useState('');
   const [submitting, setSubmitting] = useState(false);
-  const [submitted, setSubmitted] = useState(false);
-  const [error, setError]         = useState('');
+  const [submitted, setSubmitted]   = useState(false);
+  const [error, setError]           = useState('');
 
   function close() {
     setOpen(false);
     setCategory(null);
     setMessage('');
+    setSuggestedFix('');
     setError('');
     setSubmitted(false);
   }
@@ -43,9 +68,9 @@ export default function FeedbackButton() {
     setSubmitting(true);
     setError('');
     try {
-      await postFeedback(category, message.trim());
+      await postFeedback(category, message.trim(), suggestedFix.trim() || undefined);
       setSubmitted(true);
-      setTimeout(close, 2000);
+      setTimeout(close, 2200);
     } catch {
       setError('Something went wrong. Please try again.');
     } finally {
@@ -53,19 +78,16 @@ export default function FeedbackButton() {
     }
   }
 
+  const meta = category ? FIELD_META[category] : null;
   const canSubmit = category !== null && message.trim().length > 0 && !submitting;
 
   return (
     <>
-      {/* Floating trigger button */}
+      {/* Floating trigger */}
       <button
         onClick={() => setOpen(true)}
         className="fixed bottom-5 right-5 z-40 flex items-center gap-2 px-4 py-2.5 rounded-full text-sm font-semibold transition-all hover:brightness-110 active:scale-[0.97] select-none"
-        style={{
-          background: '#265CE4',
-          color: '#FFFFFF',
-          boxShadow: '0 4px 18px rgba(38,92,228,0.35)',
-        }}
+        style={{ background: '#265CE4', color: '#FFFFFF', boxShadow: '0 4px 18px rgba(38,92,228,0.35)' }}
         aria-label="Send feedback"
       >
         <svg className="w-4 h-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
@@ -74,17 +96,15 @@ export default function FeedbackButton() {
         Send Feedback
       </button>
 
-      {/* Modal backdrop + sheet */}
+      {/* Modal */}
       {open && (
         <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-4">
-          {/* Backdrop */}
           <div
             className="fixed inset-0"
             style={{ background: 'rgba(40,47,65,0.45)', backdropFilter: 'blur(2px)' }}
             onClick={close}
           />
 
-          {/* Card */}
           <div
             className="relative w-full max-w-md rounded-2xl p-6 space-y-4"
             style={{
@@ -97,9 +117,7 @@ export default function FeedbackButton() {
             <div className="flex items-start justify-between">
               <div>
                 <h2 className="font-bold text-base" style={{ color: '#282F41' }}>Send Feedback</h2>
-                <p className="text-xs mt-0.5" style={{ color: '#9DA3B8' }}>
-                  Anonymous · Read by the dev
-                </p>
+                <p className="text-xs mt-0.5" style={{ color: '#9DA3B8' }}>Anonymous · Read by the dev</p>
               </div>
               <button
                 onClick={close}
@@ -107,32 +125,29 @@ export default function FeedbackButton() {
                 style={{ color: '#9DA3B8' }}
                 onMouseEnter={e => (e.currentTarget.style.background = '#F3F0FF')}
                 onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
-                aria-label="Close"
               >
                 ✕
               </button>
             </div>
 
             {submitted ? (
-              <div className="py-8 text-center space-y-2">
+              <div className="py-10 text-center space-y-2">
                 <div className="text-3xl">🎉</div>
                 <p className="font-semibold text-sm" style={{ color: '#282F41' }}>Thanks for the feedback!</p>
-                <p className="text-xs" style={{ color: '#9DA3B8' }}>It means a lot.</p>
+                <p className="text-xs" style={{ color: '#9DA3B8' }}>It really means a lot.</p>
               </div>
             ) : (
               <>
                 {/* Category picker */}
                 <div>
-                  <p className="text-[11px] font-semibold uppercase tracking-wider mb-2" style={{ color: '#9DA3B8' }}>
-                    Category
-                  </p>
+                  <p className="text-[11px] font-semibold uppercase tracking-wider mb-2" style={{ color: '#9DA3B8' }}>Category</p>
                   <div className="grid grid-cols-2 gap-2">
                     {CATEGORIES.map(cat => {
                       const active = category === cat.id;
                       return (
                         <button
                           key={cat.id}
-                          onClick={() => setCategory(cat.id)}
+                          onClick={() => { setCategory(cat.id); setMessage(''); setSuggestedFix(''); }}
                           className="p-3 rounded-xl text-left transition-all active:scale-[0.98]"
                           style={{
                             border: active ? '1.5px solid #265CE4' : '1.5px solid #E2DFF0',
@@ -142,9 +157,7 @@ export default function FeedbackButton() {
                           onMouseLeave={e => { if (!active) (e.currentTarget as HTMLButtonElement).style.background = '#FFFFFF'; }}
                         >
                           <div className="text-base mb-0.5">{cat.emoji}</div>
-                          <div className="text-xs font-semibold" style={{ color: active ? '#265CE4' : '#282F41' }}>
-                            {cat.label}
-                          </div>
+                          <div className="text-xs font-semibold" style={{ color: active ? '#265CE4' : '#282F41' }}>{cat.label}</div>
                           <div className="text-[11px] mt-0.5" style={{ color: '#9DA3B8' }}>{cat.desc}</div>
                         </button>
                       );
@@ -152,38 +165,55 @@ export default function FeedbackButton() {
                   </div>
                 </div>
 
-                {/* Message */}
-                <div>
-                  <textarea
-                    value={message}
-                    onChange={e => setMessage(e.target.value)}
-                    placeholder="Your message*"
-                    rows={4}
-                    className="w-full text-sm rounded-xl px-3 py-2.5 resize-none outline-none transition-colors"
-                    style={{
-                      border: '1.5px solid #E2DFF0',
-                      color: '#282F41',
-                      background: '#FAFAFA',
-                    }}
-                    onFocus={e => (e.currentTarget.style.borderColor = '#265CE4')}
-                    onBlur={e => (e.currentTarget.style.borderColor = '#E2DFF0')}
-                  />
-                  {error && <p className="text-xs mt-1" style={{ color: '#DC2626' }}>{error}</p>}
-                </div>
+                {/* Category-specific fields */}
+                {meta && (
+                  <div className="space-y-3">
+                    <div>
+                      <label className="text-xs font-medium block mb-1" style={{ color: '#5A6280' }}>{meta.messageLabel}</label>
+                      <textarea
+                        value={message}
+                        onChange={e => setMessage(e.target.value)}
+                        placeholder={meta.messagePlaceholder}
+                        rows={3}
+                        className="w-full text-sm rounded-xl px-3 py-2.5 resize-none outline-none transition-colors"
+                        style={{ border: '1.5px solid #E2DFF0', color: '#282F41', background: '#FAFAFA' }}
+                        onFocus={e => (e.currentTarget.style.borderColor = '#265CE4')}
+                        onBlur={e => (e.currentTarget.style.borderColor = '#E2DFF0')}
+                      />
+                    </div>
 
-                {/* Submit */}
-                <button
-                  onClick={handleSubmit}
-                  disabled={!canSubmit}
-                  className="w-full py-2.5 rounded-xl text-sm font-semibold transition-all active:scale-[0.98]"
-                  style={{
-                    background: canSubmit ? '#265CE4' : '#E2DFF0',
-                    color: canSubmit ? '#FFFFFF' : '#9DA3B8',
-                    cursor: canSubmit ? 'pointer' : 'not-allowed',
-                  }}
-                >
-                  {submitting ? 'Sending…' : 'Send'}
-                </button>
+                    {meta.hasFixField && (
+                      <div>
+                        <label className="text-xs font-medium block mb-1" style={{ color: '#5A6280' }}>Suggested fix</label>
+                        <textarea
+                          value={suggestedFix}
+                          onChange={e => setSuggestedFix(e.target.value)}
+                          placeholder="Optional — any idea how to fix it?"
+                          rows={2}
+                          className="w-full text-sm rounded-xl px-3 py-2.5 resize-none outline-none transition-colors"
+                          style={{ border: '1.5px solid #E2DFF0', color: '#282F41', background: '#FAFAFA' }}
+                          onFocus={e => (e.currentTarget.style.borderColor = '#265CE4')}
+                          onBlur={e => (e.currentTarget.style.borderColor = '#E2DFF0')}
+                        />
+                      </div>
+                    )}
+
+                    {error && <p className="text-xs" style={{ color: '#DC2626' }}>{error}</p>}
+
+                    <button
+                      onClick={handleSubmit}
+                      disabled={!canSubmit}
+                      className="w-full py-2.5 rounded-xl text-sm font-semibold transition-all active:scale-[0.98]"
+                      style={{
+                        background: canSubmit ? '#265CE4' : '#E2DFF0',
+                        color: canSubmit ? '#FFFFFF' : '#9DA3B8',
+                        cursor: canSubmit ? 'pointer' : 'not-allowed',
+                      }}
+                    >
+                      {submitting ? 'Sending…' : 'Send'}
+                    </button>
+                  </div>
+                )}
               </>
             )}
           </div>

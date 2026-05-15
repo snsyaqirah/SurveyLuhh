@@ -10,6 +10,7 @@ interface FeedbackItem {
   id: string;
   category: Category;
   message: string;
+  suggestedFix?: string | null;
   createdAt: string;
   reply: string | null;
   repliedAt: string | null;
@@ -268,6 +269,13 @@ export default function AdminPage() {
                   <p className="text-sm leading-relaxed whitespace-pre-wrap" style={{ color: '#282F41' }}>
                     {item.message}
                   </p>
+
+                  {item.suggestedFix && (
+                    <div className="rounded-xl px-4 py-3 text-sm space-y-1" style={{ background: '#FEF2F2', borderLeft: '3px solid #EF4444' }}>
+                      <p className="text-[11px] font-semibold" style={{ color: '#DC2626' }}>Suggested fix</p>
+                      <p className="leading-relaxed whitespace-pre-wrap" style={{ color: '#282F41' }}>{item.suggestedFix}</p>
+                    </div>
+                  )}
 
                   {/* Existing reply */}
                   {item.reply && (

@@ -25,6 +25,7 @@ async def submit_feedback(body: FeedbackSubmitRequest) -> dict:
         "_id": str(uuid.uuid4()),
         "category": body.category,
         "message": body.message.strip(),
+        "suggestedFix": body.suggestedFix.strip() if body.suggestedFix and body.suggestedFix.strip() else None,
         "createdAt": datetime.now(timezone.utc),
         "reply": None,
         "repliedAt": None,
@@ -32,6 +33,17 @@ async def submit_feedback(body: FeedbackSubmitRequest) -> dict:
     }
     await feedback_col().insert_one(doc)
     return {"ok": True}
+
+
+@router.get("/public")
+async def public_feedback() -> list[dict]:
+    """Returns feedback items that have a dev reply — visible to everyone."""
+    docs = await feedback_col().find({"reply": {"$ne": None}}).sort("createdAt", -1).to_list(None)
+    result = []
+    for doc in docs:
+        doc["id"] = doc.pop("_id")
+        result.append(doc)
+    return result
 
 
 @router.get("/unread-count", dependencies=[Depends(_require_admin)])

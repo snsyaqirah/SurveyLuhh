@@ -303,13 +303,18 @@ export default function InsightTab({
     );
     const updatedRounds = rounds.map((r, ri) => ri === currentRound ? updatedRound : r);
 
-    if (!updatedRound.every(m => m.winnerId !== null)) {
+    // null-vs-null BYE slots (padding artefacts) are considered resolved
+    const roundComplete = updatedRound.every(
+      m => m.winnerId !== null || (m.leftId === null && m.rightId === null),
+    );
+    if (!roundComplete) {
       setRounds(updatedRounds);
       persist(updatedRounds, currentRound, null, []);
       return;
     }
 
-    const winners = updatedRound.map(m => m.winnerId!);
+    // collect only real winners, discarding the null-vs-null slots
+    const winners = updatedRound.map(m => m.winnerId).filter((w): w is string => w !== null);
 
     if (winners.length === 1) {
       setRounds(updatedRounds);
