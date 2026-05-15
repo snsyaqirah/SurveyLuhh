@@ -21,3 +21,7 @@ def get_db():
 
 def sessions_col():
     return get_db()["sessions"]
+
+
+def feedback_col():
+    return get_db()["feedback"]
