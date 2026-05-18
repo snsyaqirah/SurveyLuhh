@@ -20,6 +20,8 @@ const VERSIONS: Version[] = [
     changes: [
       { type: 'improvement', text: 'Rate limiting added to all public endpoints — scrape, session creation, member join, bracket votes, and feedback submit' },
       { type: 'improvement', text: 'Pre-launch security review — all 19 checks passed before going live' },
+      { type: 'fix', text: 'Footer now sits at the bottom of the landing page instead of appearing as a third column in the two-column layout' },
+      { type: 'improvement', text: 'Footer links stacked into two rows (links on top, copyright below) for better readability across all pages' },
     ],
   },
   {
