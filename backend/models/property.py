@@ -62,6 +62,7 @@ class Property(BaseModel):
 class Member(BaseModel):
     nickname: str
     lastSeen: datetime = Field(default_factory=datetime.utcnow)
+    consentGivenAt: Optional[datetime] = None
 
 
 class BracketResult(BaseModel):

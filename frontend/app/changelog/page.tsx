@@ -179,6 +179,8 @@ export default function ChangelogPage() {
 
         <p className="text-xs text-center pb-8" style={{ color: '#C2C8D8' }}>
           Made with a lot of caffeine · snsyaqirah@gmail.com
+          {' · '}
+          <Link href="/privacy" style={{ color: '#9DA3B8' }}>Privacy Policy</Link>
         </p>
       </div>
     </main>

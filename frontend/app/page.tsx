@@ -1,5 +1,6 @@
 'use client';
 
+import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { v4 as uuidv4 } from 'uuid';
 import ApartmentSVG from '@/components/landing/ApartmentSVG';
@@ -94,6 +95,13 @@ export default function LandingPage() {
         </div>
 
       </div>
+      <footer className="w-full text-center py-4">
+        <p className="text-xs" style={{ color: '#C2C8D8' }}>
+          <Link href="/privacy" style={{ color: '#9DA3B8' }}>Privacy Policy</Link>
+          {' · '}
+          <Link href="/changelog" style={{ color: '#9DA3B8' }}>Changelog</Link>
+        </p>
+      </footer>
     </main>
   );
 }

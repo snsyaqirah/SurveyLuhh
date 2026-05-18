@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import Link from 'next/link';
 
 interface NicknameModalProps {
   onConfirm: (nickname: string) => void;
@@ -9,6 +10,7 @@ interface NicknameModalProps {
 
 export default function NicknameModal({ onConfirm, existingMembers = [] }: NicknameModalProps) {
   const [value, setValue] = useState('');
+  const [consented, setConsented] = useState(false);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -45,7 +47,8 @@ export default function NicknameModal({ onConfirm, existingMembers = [] }: Nickn
                 <button
                   key={name}
                   type="button"
-                  onClick={() => onConfirm(name)}
+                  disabled={!consented}
+                  onClick={() => consented && onConfirm(name)}
                   className="px-3 py-1.5 rounded-lg text-sm font-semibold transition-all"
                   style={{ background: '#EBF0FE', color: '#265CE4', border: '1.5px solid #C7D7FA' }}
                   onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.background = '#D6E4FF'; }}
@@ -86,11 +89,28 @@ export default function NicknameModal({ onConfirm, existingMembers = [] }: Nickn
               e.currentTarget.style.boxShadow = 'none';
             }}
           />
+
+          {/* Consent notice */}
+          <label className="flex items-start gap-2.5 cursor-pointer select-none">
+            <input
+              type="checkbox"
+              checked={consented}
+              onChange={e => setConsented(e.target.checked)}
+              className="mt-0.5 shrink-0 accent-[#265CE4]"
+            />
+            <span className="text-xs leading-relaxed" style={{ color: '#5A6280' }}>
+              Your nickname and session activity are stored for 7 days, then auto-deleted.{' '}
+              <Link href="/privacy" target="_blank" style={{ color: '#265CE4' }}>
+                Privacy Policy
+              </Link>
+            </span>
+          </label>
+
           <button
             type="submit"
-            disabled={!value.trim()}
+            disabled={!value.trim() || !consented}
             className="w-full py-3 rounded-xl font-semibold text-sm text-white transition-all"
-            style={{ background: value.trim() ? '#265CE4' : 'rgba(38,92,228,0.3)' }}
+            style={{ background: value.trim() && consented ? '#265CE4' : 'rgba(38,92,228,0.3)' }}
           >
             Let&apos;s go!
           </button>

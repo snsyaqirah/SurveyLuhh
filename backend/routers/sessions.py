@@ -78,7 +78,7 @@ async def register_member(session_id: str, body: MemberRequest) -> dict:
     if result.matched_count == 0:
         await sessions_col().update_one(
             {"_id": session_id},
-            {"$push": {"members": {"nickname": body.nickname, "lastSeen": now}}},
+            {"$push": {"members": {"nickname": body.nickname, "lastSeen": now, "consentGivenAt": now}}},
             upsert=True,
         )
     return {"ok": True}

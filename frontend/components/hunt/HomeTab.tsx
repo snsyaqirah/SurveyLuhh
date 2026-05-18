@@ -293,6 +293,12 @@ export default function HomeTab({ sessionId, nickname, onPropertyAdded }: HomeTa
           <span className="text-xs" style={{ color: '#C2C8D8' }}>Protected by reCAPTCHA</span>
           <div className="h-px flex-1" style={{ background: '#E2DFF0' }} />
         </div>
+
+        <p className="text-center text-[11px]" style={{ color: '#C2C8D8' }}>
+          <a href="/privacy" style={{ color: '#9DA3B8' }}>Privacy Policy</a>
+          {' · '}
+          <a href="mailto:snsyaqirah@gmail.com" style={{ color: '#9DA3B8' }}>Contact</a>
+        </p>
       </div>
     </div>
   );

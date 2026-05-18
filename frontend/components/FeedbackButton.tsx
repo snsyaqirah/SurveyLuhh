@@ -180,6 +180,9 @@ export default function FeedbackButton() {
                         onFocus={e => (e.currentTarget.style.borderColor = '#265CE4')}
                         onBlur={e => (e.currentTarget.style.borderColor = '#E2DFF0')}
                       />
+                      <p className="text-[11px] mt-1" style={{ color: '#9DA3B8' }}>
+                        Do not include personal info (phone numbers, IC numbers, email addresses).
+                      </p>
                     </div>
 
                     {meta.hasFixField && (
