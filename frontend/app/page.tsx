@@ -14,9 +14,10 @@ export default function LandingPage() {
 
   return (
     <main
-      className="min-h-screen w-full flex items-center py-12"
+      className="min-h-screen w-full flex flex-col"
       style={{ background: '#FAF8FF' }}
     >
+      <div className="flex-1 flex items-center py-12">
       <div className="w-full max-w-6xl mx-auto px-6 sm:px-10 lg:px-16 grid grid-cols-1 md:grid-cols-2 items-center gap-10 lg:gap-12">
 
         {/* Left — Copy */}
@@ -95,6 +96,8 @@ export default function LandingPage() {
         </div>
 
       </div>
+      </div>
+
       <footer className="w-full text-center py-4">
         <div className="flex flex-col items-center gap-1 text-xs" style={{ color: '#C2C8D8' }}>
           <div className="flex items-center gap-2">
