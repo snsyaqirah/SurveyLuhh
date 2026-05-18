@@ -2,6 +2,8 @@ import os
 import logging
 from contextlib import asynccontextmanager
 
+import sentry_sdk
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from starlette.middleware.base import BaseHTTPMiddleware
@@ -16,6 +18,12 @@ from routers import sessions, scrape, feedback
 from services.db import get_client
 
 load_dotenv()
+
+sentry_sdk.init(
+    dsn="https://970f25a25e6475bdbbe3affc6616156d@o4511411898548224.ingest.us.sentry.io/4511411903463424",
+    traces_sample_rate=0.1,
+    send_default_pii=False,
+)
 
 logger = logging.getLogger(__name__)
 

@@ -17,8 +17,8 @@ const securityHeaders = [
       "font-src 'self' https://fonts.gstatic.com",
       // Property images come from any HTTPS source
       "img-src 'self' data: https:",
-      // API calls + reCAPTCHA network requests
-      "connect-src 'self' https://www.google.com https://www.gstatic.com",
+      // API calls + reCAPTCHA + Sentry error reporting
+      "connect-src 'self' https://www.google.com https://www.gstatic.com https://o4511411898548224.ingest.us.sentry.io",
       // reCAPTCHA iframe
       "frame-src https://www.google.com",
     ].join('; '),
