@@ -123,12 +123,13 @@ export default function PrivacyPage() {
           </Section>
         </div>
 
-        <p className="text-xs text-center pb-8" style={{ color: '#C2C8D8' }}>
-          &copy; {YEAR}{' '}
-          <a href="https://syaqi.dev" target="_blank" rel="noopener noreferrer" style={{ color: '#9DA3B8' }}>Syaqirah</a>
-          {' · '}
+        <div className="flex flex-col items-center gap-1 text-xs pb-8" style={{ color: '#C2C8D8' }}>
           <Link href="/changelog" style={{ color: '#9DA3B8' }}>Changelog</Link>
-        </p>
+          <span>
+            &copy; {YEAR}{' '}
+            <a href="https://syaqi.dev" target="_blank" rel="noopener noreferrer" style={{ color: '#9DA3B8' }}>Syaqirah</a>
+          </span>
+        </div>
       </div>
     </main>
   );

@@ -154,14 +154,17 @@ export default function FeedbackPage() {
             })}
           </div>
         )}
-        <p className="text-xs text-center pb-8" style={{ color: '#C2C8D8' }}>
-          &copy; {new Date().getFullYear()}{' '}
-          <a href="https://syaqi.dev" target="_blank" rel="noopener noreferrer" style={{ color: '#9DA3B8' }}>Syaqirah</a>
-          {' · '}
-          <Link href="/privacy" style={{ color: '#9DA3B8' }}>Privacy Policy</Link>
-          {' · '}
-          <Link href="/changelog" style={{ color: '#9DA3B8' }}>Changelog</Link>
-        </p>
+        <div className="flex flex-col items-center gap-1 text-xs pb-8" style={{ color: '#C2C8D8' }}>
+          <div className="flex items-center gap-2">
+            <Link href="/privacy" style={{ color: '#9DA3B8' }}>Privacy Policy</Link>
+            <span>·</span>
+            <Link href="/changelog" style={{ color: '#9DA3B8' }}>Changelog</Link>
+          </div>
+          <span>
+            &copy; {new Date().getFullYear()}{' '}
+            <a href="https://syaqi.dev" target="_blank" rel="noopener noreferrer" style={{ color: '#9DA3B8' }}>Syaqirah</a>
+          </span>
+        </div>
       </div>
     </main>
   );
