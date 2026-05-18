@@ -1,6 +1,7 @@
 import Link from 'next/link';
 
 const LAST_UPDATED = '19 May 2026';
+const YEAR = new Date().getFullYear();
 
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
   return (
@@ -79,6 +80,10 @@ export default function PrivacyPage() {
                 <strong>Google reCAPTCHA v3</strong> — when you scrape a property listing, your browser sends a reCAPTCHA token to Google to verify you&apos;re not a bot. Google processes your IP address and browser behaviour for this check. See{' '}
                 <a href="https://policies.google.com/privacy" target="_blank" rel="noopener noreferrer" style={{ color: '#265CE4' }}>Google&apos;s Privacy Policy</a>.
               </li>
+              <li>
+                <strong>Sentry</strong> — we use Sentry for error monitoring. If the app crashes or throws an exception, Sentry captures technical details (error message, stack trace, browser/OS type) and sends them to Sentry&apos;s servers in the US. We have disabled personal data collection in Sentry (<code style={{ background: '#F3F0FF', borderRadius: 4, padding: '1px 5px', fontSize: 12 }}>send_default_pii=false</code>), so your nickname and session content are not included in error reports. See{' '}
+                <a href="https://sentry.io/privacy/" target="_blank" rel="noopener noreferrer" style={{ color: '#265CE4' }}>Sentry&apos;s Privacy Policy</a>.
+              </li>
             </ul>
             <p>
               By using SurveyLuhh, you acknowledge that some data is processed outside Malaysia.
@@ -119,8 +124,10 @@ export default function PrivacyPage() {
         </div>
 
         <p className="text-xs text-center pb-8" style={{ color: '#C2C8D8' }}>
-          SurveyLuhh · A personal project by Syaqirah ·{' '}
-          <a href="mailto:snsyaqirah@gmail.com" style={{ color: '#9DA3B8' }}>snsyaqirah@gmail.com</a>
+          &copy; {YEAR}{' '}
+          <a href="https://syaqi.dev" target="_blank" rel="noopener noreferrer" style={{ color: '#9DA3B8' }}>Syaqirah</a>
+          {' · '}
+          <Link href="/changelog" style={{ color: '#9DA3B8' }}>Changelog</Link>
         </p>
       </div>
     </main>

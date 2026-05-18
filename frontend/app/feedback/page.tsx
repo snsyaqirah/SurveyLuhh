@@ -154,6 +154,14 @@ export default function FeedbackPage() {
             })}
           </div>
         )}
+        <p className="text-xs text-center pb-8" style={{ color: '#C2C8D8' }}>
+          &copy; {new Date().getFullYear()}{' '}
+          <a href="https://syaqi.dev" target="_blank" rel="noopener noreferrer" style={{ color: '#9DA3B8' }}>Syaqirah</a>
+          {' · '}
+          <Link href="/privacy" style={{ color: '#9DA3B8' }}>Privacy Policy</Link>
+          {' · '}
+          <Link href="/changelog" style={{ color: '#9DA3B8' }}>Changelog</Link>
+        </p>
       </div>
     </main>
   );

@@ -48,3 +48,4 @@ desktop.ini
 *.tmp
 
 security_review.md
+.claude/settings.local.json

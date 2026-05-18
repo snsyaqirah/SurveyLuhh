@@ -14,9 +14,20 @@ interface Version {
 
 const VERSIONS: Version[] = [
   {
+    version: '0.5.0',
+    date: '2026-05-19',
+    label: 'Latest',
+    changes: [
+      { type: 'feat',        text: 'Sentry error monitoring on frontend and backend for faster bug detection' },
+      { type: 'feat',        text: 'Feedback visibility options — admins can now mark feedback as public before it appears on the board' },
+      { type: 'feat',        text: 'Session member tokens — secure per-member identity for voting and bracket actions' },
+      { type: 'improvement', text: 'MongoDB backup files are now encrypted before upload' },
+      { type: 'improvement', text: 'Privacy Policy footer on all pages + Sentry disclosed as a third-party processor' },
+    ],
+  },
+  {
     version: '0.4.0',
     date: '2025-05-15',
-    label: 'Latest',
     changes: [
       { type: 'feat',        text: 'Feedback board — send anonymous feedback, devs can reply, view at /feedback' },
       { type: 'feat',        text: 'Admin panel at /admin — view, filter, and reply to all feedback' },
@@ -178,7 +189,8 @@ export default function ChangelogPage() {
         </div>
 
         <p className="text-xs text-center pb-8" style={{ color: '#C2C8D8' }}>
-          Made with a lot of caffeine · snsyaqirah@gmail.com
+          &copy; {new Date().getFullYear()}{' '}
+          <a href="https://syaqi.dev" target="_blank" rel="noopener noreferrer" style={{ color: '#9DA3B8' }}>Syaqirah</a>
           {' · '}
           <Link href="/privacy" style={{ color: '#9DA3B8' }}>Privacy Policy</Link>
         </p>
