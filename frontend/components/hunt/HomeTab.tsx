@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { useGoogleReCaptcha } from 'react-google-recaptcha-v3';
 import type { Property } from '@/lib/types';
 import { scrapeProperty, checkHealth } from '@/lib/api';
 
@@ -59,6 +60,7 @@ function isIProperty(value: string): boolean {
 }
 
 export default function HomeTab({ sessionId, nickname, onPropertyAdded }: HomeTabProps) {
+  const { executeRecaptcha } = useGoogleReCaptcha();
   const [url, setUrl] = useState('');
   const [phase, setPhase] = useState<ScrapePhase>('idle');
   const [error, setError] = useState('');
@@ -108,12 +110,18 @@ export default function HomeTab({ sessionId, nickname, onPropertyAdded }: HomeTa
       return;
     }
 
+    if (!executeRecaptcha) {
+      setPhase('error');
+      setError('reCAPTCHA not ready. Please try again.');
+      return;
+    }
+
     setPhase('validating');
     await new Promise(r => setTimeout(r, 300));
     setPhase('opening');
 
     try {
-      const recaptchaToken = 'dev-bypass';
+      const recaptchaToken = await executeRecaptcha('scrape');
       const result = await scrapeProperty({ url, sessionId, recaptchaToken, nickname });
 
       if (result.property) {

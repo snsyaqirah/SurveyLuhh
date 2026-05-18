@@ -1,10 +1,13 @@
 import os
 import uuid
 import asyncio
+import logging
 from datetime import datetime, timezone
 
 import httpx
 from fastapi import APIRouter, HTTPException
+
+logger = logging.getLogger(__name__)
 
 from models.property import Property, ScrapeRequest, ScrapeResponse
 from services.db import sessions_col
@@ -18,8 +21,6 @@ MAX_PROPERTIES_PER_SESSION = 20
 
 
 async def _verify_recaptcha(token: str) -> bool:
-    if token == "dev-bypass":
-        return True
     secret = os.environ.get("RECAPTCHA_SECRET_KEY", "")
     async with httpx.AsyncClient() as client:
         resp = await client.post(
@@ -57,9 +58,9 @@ async def scrape_property(body: ScrapeRequest) -> ScrapeResponse:
         )
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
-    except Exception as e:
-        import traceback; traceback.print_exc()
-        return ScrapeResponse(success=False, error=f"Scraping failed: {e}")
+    except Exception:
+        logger.exception("Scrape failed for url=%s", body.url)
+        return ScrapeResponse(success=False, error="Scraping failed. Please try again.")
 
     prop = Property(
         id=str(uuid.uuid4()),

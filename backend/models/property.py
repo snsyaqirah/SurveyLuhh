@@ -78,10 +78,10 @@ class Session(BaseModel):
 
 
 class ScrapeRequest(BaseModel):
-    url: str
-    sessionId: str
-    recaptchaToken: str
-    nickname: str = ""
+    url: str = Field(max_length=2048)
+    sessionId: str = Field(max_length=100)
+    recaptchaToken: str = Field(max_length=2048)
+    nickname: str = Field(default="", max_length=50)
 
 
 class ScrapeResponse(BaseModel):
@@ -95,9 +95,9 @@ class StatusUpdateRequest(BaseModel):
 
 
 class MemberRequest(BaseModel):
-    nickname: str
+    nickname: str = Field(min_length=1, max_length=50)
 
 
 class BracketResultRequest(BaseModel):
-    nickname: str
-    winnerId: str
+    nickname: str = Field(min_length=1, max_length=50)
+    winnerId: str = Field(max_length=100)

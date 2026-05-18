@@ -58,9 +58,9 @@ export default function AdminPage() {
   const [replying, setReplying]   = useState<string | null>(null);
   const [filter, setFilter]       = useState<Category | 'all'>('all');
 
-  // Restore token from localStorage on mount
+  // Restore token from sessionStorage on mount
   useEffect(() => {
-    const saved = localStorage.getItem('surveyluhh_admin_token');
+    const saved = sessionStorage.getItem('surveyluhh_admin_token');
     if (saved) {
       setToken(saved);
       setAuthed(true);
@@ -76,7 +76,7 @@ export default function AdminPage() {
       if (e instanceof Error && e.message === 'unauthorized') {
         setAuthed(false);
         setToken('');
-        localStorage.removeItem('surveyluhh_admin_token');
+        sessionStorage.removeItem('surveyluhh_admin_token');
       }
     } finally {
       setLoading(false);
@@ -93,7 +93,7 @@ export default function AdminPage() {
     setAuthError('');
     try {
       await apiFetch('/api/feedback', tokenInput.trim());
-      localStorage.setItem('surveyluhh_admin_token', tokenInput.trim());
+      sessionStorage.setItem('surveyluhh_admin_token', tokenInput.trim());
       setToken(tokenInput.trim());
       setAuthed(true);
     } catch {
@@ -122,7 +122,7 @@ export default function AdminPage() {
   }
 
   function logout() {
-    localStorage.removeItem('surveyluhh_admin_token');
+    sessionStorage.removeItem('surveyluhh_admin_token');
     setAuthed(false);
     setToken('');
     setItems([]);
