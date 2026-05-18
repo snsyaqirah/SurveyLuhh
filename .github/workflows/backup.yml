@@ -25,6 +25,17 @@ jobs:
           MONGODB_URI: ${{ secrets.MONGODB_URI }}
         run: python backend/backup.py
 
+      - name: Encrypt backup files
+        env:
+          BACKUP_PASSWORD: ${{ secrets.BACKUP_PASSWORD }}
+        run: |
+          for f in backup_output/*.json; do
+            openssl enc -aes-256-cbc -pbkdf2 -iter 100000 \
+              -pass env:BACKUP_PASSWORD \
+              -in "$f" -out "${f}.enc"
+            rm "$f"
+          done
+
       - name: Upload backup artifact
         uses: actions/upload-artifact@v4
         with:
