@@ -14,9 +14,17 @@ interface Version {
 
 const VERSIONS: Version[] = [
   {
-    version: '0.5.0',
+    version: '0.6.0',
     date: '2026-05-19',
     label: 'Latest',
+    changes: [
+      { type: 'improvement', text: 'Rate limiting added to all public endpoints — scrape, session creation, member join, bracket votes, and feedback submit' },
+      { type: 'improvement', text: 'Pre-launch security review — all 19 checks passed before going live' },
+    ],
+  },
+  {
+    version: '0.5.0',
+    date: '2026-05-19',
     changes: [
       { type: 'feat',        text: 'Sentry error monitoring on frontend and backend for faster bug detection' },
       { type: 'feat',        text: 'Feedback visibility options — admins can now mark feedback as public before it appears on the board' },
@@ -101,7 +109,7 @@ export default function ChangelogPage() {
             </div>
             <div>
               <h1 className="font-bold text-base" style={{ color: '#282F41' }}>SurveyLuhh</h1>
-              <p className="text-xs" style={{ color: '#9DA3B8' }}>v{VERSIONS[0].version} · Built for Malaysian house hunters</p>
+              <p className="text-xs" style={{ color: '#9DA3B8' }}>v{VERSIONS[0].version} · Built for Malaysian house hunters · Live</p>
             </div>
           </div>
           <p className="text-sm leading-relaxed" style={{ color: '#5A6280' }}>
