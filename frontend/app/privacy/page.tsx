@@ -40,7 +40,7 @@ export default function PrivacyPage() {
 
         <div
           className="rounded-2xl p-6 space-y-6 divide-y"
-          style={{ background: '#FFFFFF', border: '1px solid #E2DFF0', divideColor: '#E2DFF0' }}
+          style={{ background: '#FFFFFF', border: '1px solid #E2DFF0' }}
         >
           <Section title="1. What we collect">
             <p>We collect the minimum needed to make the app work:</p>
