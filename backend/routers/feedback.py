@@ -19,7 +19,8 @@ def _require_admin(authorization: Optional[str] = Header(None)):
 
 
 @router.post("", status_code=201)
-async def submit_feedback(body: FeedbackSubmitRequest) -> dict:
+@limiter.limit("5/minute")
+async def submit_feedback(request: Request, body: FeedbackSubmitRequest) -> dict:
     if not body.message.strip():
         raise HTTPException(status_code=422, detail="Message cannot be empty")
     doc = {
@@ -38,7 +39,8 @@ async def submit_feedback(body: FeedbackSubmitRequest) -> dict:
 
 
 @router.get("/public")
-async def public_feedback() -> list[dict]:
+@limiter.limit("30/minute")
+async def public_feedback(request: Request) -> list[dict]:
     """Returns feedback items the admin has explicitly marked public."""
     docs = await feedback_col().find({"isPublic": True, "reply": {"$ne": None}}).sort("createdAt", -1).to_list(None)
     result = []

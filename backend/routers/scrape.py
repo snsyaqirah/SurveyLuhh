@@ -5,10 +5,11 @@ import logging
 from datetime import datetime, timezone
 
 import httpx
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Request
 
 logger = logging.getLogger(__name__)
 
+from limiter import limiter
 from models.property import Property, ScrapeRequest, ScrapeResponse
 from services.db import sessions_col
 from services.scraper import scrape_url
@@ -33,7 +34,8 @@ async def _verify_recaptcha(token: str) -> bool:
 
 
 @router.post("", response_model=ScrapeResponse)
-async def scrape_property(body: ScrapeRequest) -> ScrapeResponse:
+@limiter.limit("10/minute")
+async def scrape_property(request: Request, body: ScrapeRequest) -> ScrapeResponse:
     # reCAPTCHA check
     ok = await _verify_recaptcha(body.recaptchaToken)
     if not ok:

@@ -3,8 +3,9 @@ import uuid
 import logging
 from datetime import datetime, timezone
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Request
 
+from limiter import limiter
 from models.property import Session, Property, StatusUpdateRequest, MemberRequest, BracketResultRequest
 from services.db import sessions_col
 
@@ -14,7 +15,8 @@ router = APIRouter(prefix="/api/sessions", tags=["sessions"])
 
 
 @router.post("", status_code=201)
-async def create_session() -> dict:
+@limiter.limit("10/minute")
+async def create_session(request: Request) -> dict:
     session_id = str(uuid.uuid4())
     doc = {
         "_id": session_id,
@@ -76,7 +78,8 @@ async def delete_property(session_id: str, property_id: str):
 
 
 @router.patch("/{session_id}/members", status_code=200)
-async def register_member(session_id: str, body: MemberRequest) -> dict:
+@limiter.limit("20/minute")
+async def register_member(request: Request, session_id: str, body: MemberRequest) -> dict:
     now = datetime.now(timezone.utc)
     member_token = str(uuid.uuid4())
     token_hash = hashlib.sha256(member_token.encode()).hexdigest()
@@ -100,7 +103,8 @@ async def register_member(session_id: str, body: MemberRequest) -> dict:
 
 
 @router.patch("/{session_id}/bracket", status_code=200)
-async def save_bracket_result(session_id: str, body: BracketResultRequest) -> dict:
+@limiter.limit("30/minute")
+async def save_bracket_result(request: Request, session_id: str, body: BracketResultRequest) -> dict:
     if body.memberToken:
         token_hash = hashlib.sha256(body.memberToken.encode()).hexdigest()
         match = await sessions_col().find_one(
