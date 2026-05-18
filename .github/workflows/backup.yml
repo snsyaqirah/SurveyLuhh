@@ -1,0 +1,33 @@
+name: Weekly MongoDB Backup
+
+on:
+  schedule:
+    - cron: '0 2 * * 0'   # Every Sunday at 2am UTC
+  workflow_dispatch:        # Allow manual trigger from the GitHub Actions tab
+
+jobs:
+  backup:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: pip install "pymongo[srv]"
+
+      - name: Run backup
+        env:
+          MONGODB_URI: ${{ secrets.MONGODB_URI }}
+        run: python backend/backup.py
+
+      - name: Upload backup artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: mongodb-backup-${{ github.run_id }}-${{ github.run_attempt }}
+          path: backup_output/
+          retention-days: 90
