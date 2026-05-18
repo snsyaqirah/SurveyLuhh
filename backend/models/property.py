@@ -63,6 +63,7 @@ class Member(BaseModel):
     nickname: str
     lastSeen: datetime = Field(default_factory=datetime.utcnow)
     consentGivenAt: Optional[datetime] = None
+    tokenHash: Optional[str] = None
 
 
 class BracketResult(BaseModel):
@@ -102,3 +103,4 @@ class MemberRequest(BaseModel):
 class BracketResultRequest(BaseModel):
     nickname: str = Field(min_length=1, max_length=50)
     winnerId: str = Field(max_length=100)
+    memberToken: Optional[str] = Field(default=None, max_length=100)

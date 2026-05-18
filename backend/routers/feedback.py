@@ -3,8 +3,9 @@ import uuid
 from datetime import datetime, timezone
 from typing import Optional
 
-from fastapi import APIRouter, Depends, Header, HTTPException
+from fastapi import APIRouter, Depends, Header, HTTPException, Request
 
+from limiter import limiter
 from models.feedback import Feedback, FeedbackReplyRequest, FeedbackSubmitRequest
 from services.db import feedback_col
 
@@ -30,6 +31,7 @@ async def submit_feedback(body: FeedbackSubmitRequest) -> dict:
         "reply": None,
         "repliedAt": None,
         "read": False,
+        "isPublic": False,
     }
     await feedback_col().insert_one(doc)
     return {"ok": True}
@@ -37,8 +39,8 @@ async def submit_feedback(body: FeedbackSubmitRequest) -> dict:
 
 @router.get("/public")
 async def public_feedback() -> list[dict]:
-    """Returns feedback items that have a dev reply — visible to everyone."""
-    docs = await feedback_col().find({"reply": {"$ne": None}}).sort("createdAt", -1).to_list(None)
+    """Returns feedback items the admin has explicitly marked public."""
+    docs = await feedback_col().find({"isPublic": True, "reply": {"$ne": None}}).sort("createdAt", -1).to_list(None)
     result = []
     for doc in docs:
         doc["id"] = doc.pop("_id")
@@ -47,13 +49,15 @@ async def public_feedback() -> list[dict]:
 
 
 @router.get("/unread-count", dependencies=[Depends(_require_admin)])
-async def unread_count() -> dict:
+@limiter.limit("3/minute")
+async def unread_count(request: Request) -> dict:
     count = await feedback_col().count_documents({"read": False})
     return {"count": count}
 
 
 @router.get("", dependencies=[Depends(_require_admin)])
-async def list_feedback() -> list[dict]:
+@limiter.limit("3/minute")
+async def list_feedback(request: Request) -> list[dict]:
     docs = await feedback_col().find().sort("createdAt", -1).to_list(None)
     await feedback_col().update_many({"read": False}, {"$set": {"read": True}})
     result = []
@@ -64,10 +68,15 @@ async def list_feedback() -> list[dict]:
 
 
 @router.patch("/{feedback_id}/reply", status_code=200, dependencies=[Depends(_require_admin)])
-async def reply_to_feedback(feedback_id: str, body: FeedbackReplyRequest) -> dict:
+@limiter.limit("3/minute")
+async def reply_to_feedback(feedback_id: str, body: FeedbackReplyRequest, request: Request) -> dict:
     result = await feedback_col().update_one(
         {"_id": feedback_id},
-        {"$set": {"reply": body.reply.strip(), "repliedAt": datetime.now(timezone.utc)}},
+        {"$set": {
+            "reply": body.reply.strip(),
+            "repliedAt": datetime.now(timezone.utc),
+            "isPublic": body.makePublic,
+        }},
     )
     if result.matched_count == 0:
         raise HTTPException(status_code=404, detail="Feedback not found")

@@ -13,6 +13,7 @@ import type { Property, Member, BracketResult } from '@/lib/types';
 export type TabId = 'home' | 'properties' | 'insight';
 
 const nicknameKey = (sessionId: string) => `surveyluhh_nickname_${sessionId}`;
+const memberTokenKey = (sessionId: string) => `surveyluhh_member_token_${sessionId}`;
 
 export default function HuntPage() {
   const { sessionId } = useParams<{ sessionId: string }>();
@@ -22,6 +23,7 @@ export default function HuntPage() {
   const [bracketResults, setBracketResults] = useState<BracketResult[]>([]);
   const [loading, setLoading] = useState(true);
   const [nickname, setNickname] = useState<string | null>(null);
+  const [memberToken, setMemberToken] = useState<string | null>(null);
   const [showNicknameModal, setShowNicknameModal] = useState(false);
   const [sessionCreatedAt, setSessionCreatedAt] = useState<string | null>(null);
 
@@ -29,6 +31,12 @@ export default function HuntPage() {
     const saved = localStorage.getItem(nicknameKey(sessionId));
     if (saved) {
       setNickname(saved);
+      registerMember(sessionId, saved).then(result => {
+        if (result.memberToken) {
+          localStorage.setItem(memberTokenKey(sessionId), result.memberToken);
+          setMemberToken(result.memberToken);
+        }
+      });
     } else {
       setShowNicknameModal(true);
     }
@@ -67,13 +75,15 @@ export default function HuntPage() {
 
   const handleNicknameConfirm = (name: string) => {
     localStorage.setItem(nicknameKey(sessionId), name);
-    setNickname(name);        // triggers the useEffect below which calls registerMember
+    setNickname(name);
     setShowNicknameModal(false);
+    registerMember(sessionId, name).then(result => {
+      if (result.memberToken) {
+        localStorage.setItem(memberTokenKey(sessionId), result.memberToken);
+        setMemberToken(result.memberToken);
+      }
+    });
   };
-
-  useEffect(() => {
-    if (nickname) registerMember(sessionId, nickname);
-  }, [nickname, sessionId]);
 
   const handleTabChange = useCallback(async (tab: TabId) => {
     setActiveTab(tab);
@@ -150,6 +160,7 @@ export default function HuntPage() {
             properties={properties}
             sessionId={sessionId}
             nickname={nickname ?? ''}
+            memberToken={memberToken ?? undefined}
             bracketResults={bracketResults}
             onBracketResult={handleBracketResult}
           />

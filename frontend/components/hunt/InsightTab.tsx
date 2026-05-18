@@ -8,6 +8,7 @@ interface InsightTabProps {
   properties: Property[];
   sessionId: string;
   nickname: string;
+  memberToken?: string;
   bracketResults: BracketResult[];
   onBracketResult: (winnerId: string) => void;
 }
@@ -256,7 +257,7 @@ function TBDMatchCard() {
 // ── Main component ─────────────────────────────────────────────────────────
 
 export default function InsightTab({
-  properties, sessionId, nickname, bracketResults, onBracketResult,
+  properties, sessionId, nickname, memberToken, bracketResults, onBracketResult,
 }: InsightTabProps) {
   const [rounds, setRounds]             = useState<BracketRounds>([]);
   const [currentRound, setCurrentRound] = useState(0);
@@ -321,7 +322,7 @@ export default function InsightTab({
       setWinnerId(winners[0]);
       persist(updatedRounds, currentRound, winners[0], []);
       onBracketResult(winners[0]);
-      saveBracketResult(sessionId, nickname, winners[0]);
+      saveBracketResult(sessionId, nickname, winners[0], memberToken);
       setTimeout(spawnConfetti, 200);
       return;
     }

@@ -19,6 +19,7 @@ class FeedbackSubmitRequest(BaseModel):
 
 class FeedbackReplyRequest(BaseModel):
     reply: str = Field(min_length=1, max_length=5000)
+    makePublic: bool = False
 
 
 class Feedback(BaseModel):
@@ -30,3 +31,4 @@ class Feedback(BaseModel):
     reply: Optional[str] = None
     repliedAt: Optional[datetime] = None
     read: bool = False
+    isPublic: bool = False

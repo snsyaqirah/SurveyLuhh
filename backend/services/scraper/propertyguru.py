@@ -16,11 +16,6 @@ def scrape(url: str) -> dict:
         time.sleep(3)
 
         soup = BeautifulSoup(driver.page_source, "html.parser")
-        try:
-            _body = driver.find_element(By.TAG_NAME, "body").text[:300].replace("\n", " ")
-            print(f"[PG] url={driver.current_url!r} body_preview={_body!r}")
-        except Exception as _ex:
-            print(f"[PG] body_preview error: {_ex}")
 
         # ── Primary: __NEXT_DATA__ JSON ──────────────────────────────────────
         nd = _from_next_data(soup)

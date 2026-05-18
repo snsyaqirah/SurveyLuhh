@@ -15,6 +15,7 @@ interface FeedbackItem {
   reply: string | null;
   repliedAt: string | null;
   read: boolean;
+  isPublic: boolean;
 }
 
 const CATEGORY_META: Record<Category, { emoji: string; label: string; color: string; bg: string }> = {
@@ -55,6 +56,7 @@ export default function AdminPage() {
   const [items, setItems]         = useState<FeedbackItem[]>([]);
   const [loading, setLoading]     = useState(false);
   const [replyDraft, setReplyDraft] = useState<Record<string, string>>({});
+  const [makePublicDraft, setMakePublicDraft] = useState<Record<string, boolean>>({});
   const [replying, setReplying]   = useState<string | null>(null);
   const [filter, setFilter]       = useState<Category | 'all'>('all');
 
@@ -106,16 +108,18 @@ export default function AdminPage() {
   async function handleReply(id: string) {
     const reply = (replyDraft[id] ?? '').trim();
     if (!reply) return;
+    const makePublic = makePublicDraft[id] ?? false;
     setReplying(id);
     try {
       await apiFetch(`/api/feedback/${id}/reply`, token, {
         method: 'PATCH',
-        body: JSON.stringify({ reply }),
+        body: JSON.stringify({ reply, makePublic }),
       });
       setItems(prev => prev.map(item =>
-        item.id === id ? { ...item, reply, repliedAt: new Date().toISOString() } : item
+        item.id === id ? { ...item, reply, repliedAt: new Date().toISOString(), isPublic: makePublic } : item
       ));
       setReplyDraft(prev => { const n = { ...prev }; delete n[id]; return n; });
+      setMakePublicDraft(prev => { const n = { ...prev }; delete n[id]; return n; });
     } finally {
       setReplying(null);
     }
@@ -251,12 +255,19 @@ export default function AdminPage() {
                 >
                   {/* Top row */}
                   <div className="flex items-center gap-2 justify-between">
-                    <span
-                      className="flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-semibold"
-                      style={{ background: meta.bg, color: meta.color }}
-                    >
-                      {meta.emoji} {meta.label}
-                    </span>
+                    <div className="flex items-center gap-1.5">
+                      <span
+                        className="flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-semibold"
+                        style={{ background: meta.bg, color: meta.color }}
+                      >
+                        {meta.emoji} {meta.label}
+                      </span>
+                      {item.isPublic && (
+                        <span className="px-2 py-0.5 rounded-full text-[10px] font-semibold" style={{ background: '#F0FDF4', color: '#16A34A' }}>
+                          Public
+                        </span>
+                      )}
+                    </div>
                     <div className="flex items-center gap-2">
                       {!item.read && (
                         <span className="w-2 h-2 rounded-full shrink-0" style={{ background: '#265CE4' }} />
@@ -305,14 +316,25 @@ export default function AdminPage() {
                       onBlur={e => (e.currentTarget.style.borderColor = '#E2DFF0')}
                     />
                     {draft.trim() && (
-                      <button
-                        onClick={() => handleReply(item.id)}
-                        disabled={replying === item.id}
-                        className="px-4 py-1.5 rounded-lg text-xs font-semibold transition-all"
-                        style={{ background: '#265CE4', color: '#FFFFFF' }}
-                      >
-                        {replying === item.id ? 'Saving…' : item.reply ? 'Update reply' : 'Reply'}
-                      </button>
+                      <div className="flex items-center justify-between gap-3 flex-wrap">
+                        <label className="flex items-center gap-1.5 cursor-pointer select-none">
+                          <input
+                            type="checkbox"
+                            checked={makePublicDraft[item.id] ?? item.isPublic}
+                            onChange={e => setMakePublicDraft(prev => ({ ...prev, [item.id]: e.target.checked }))}
+                            className="accent-[#265CE4]"
+                          />
+                          <span className="text-[11px]" style={{ color: '#5A6280' }}>Show reply publicly</span>
+                        </label>
+                        <button
+                          onClick={() => handleReply(item.id)}
+                          disabled={replying === item.id}
+                          className="px-4 py-1.5 rounded-lg text-xs font-semibold transition-all"
+                          style={{ background: '#265CE4', color: '#FFFFFF' }}
+                        >
+                          {replying === item.id ? 'Saving…' : item.reply ? 'Update reply' : 'Reply'}
+                        </button>
+                      </div>
                     )}
                   </div>
                 </div>
