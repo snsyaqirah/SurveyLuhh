@@ -12,7 +12,7 @@ export function middleware(request: NextRequest) {
     "style-src 'self' https://fonts.googleapis.com 'unsafe-inline'",
     "font-src 'self' https://fonts.gstatic.com",
     "img-src 'self' data: https:",
-    "connect-src 'self' https://www.google.com https://www.gstatic.com https://o4511411898548224.ingest.us.sentry.io",
+    "connect-src 'self' https://www.google.com https://www.gstatic.com https://o4511411898548224.ingest.us.sentry.io https://surveyluhh.onrender.com",
     "frame-src https://www.google.com",
   ].join('; ');
 
