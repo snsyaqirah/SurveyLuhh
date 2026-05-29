@@ -43,6 +43,8 @@ export interface BracketResult {
 export interface Session {
   id: string;
   createdAt: string;
+  expiresAt?: string;
+  extensionCount?: number;
   properties: Property[];
   members: Member[];
   bracketResults: BracketResult[];

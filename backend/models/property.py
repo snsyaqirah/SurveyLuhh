@@ -74,6 +74,8 @@ class BracketResult(BaseModel):
 class Session(BaseModel):
     id: str
     createdAt: datetime = Field(default_factory=datetime.utcnow)
+    expiresAt: Optional[datetime] = None
+    extensionCount: int = 0
     properties: list[Property] = []
     members: list[Member] = []
     bracketResults: list[BracketResult] = []

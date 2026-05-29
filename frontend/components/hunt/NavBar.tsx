@@ -11,7 +11,7 @@ interface NavBarProps {
   propertyCount: number;
   members?: Member[];
   nickname?: string | null;
-  sessionCreatedAt?: string | null;
+  sessionExpiresAt?: string | null;
 }
 
 const TABS: { id: TabId; label: string; shortLabel: string }[] = [
@@ -35,14 +35,14 @@ function isOnline(lastSeen: string): boolean {
   return Date.now() - new Date(lastSeen).getTime() < 60 * 60 * 1000;
 }
 
-function getExpiryInfo(createdAt: string): { daysLeft: number; expiresOn: string } {
-  const expiresAt = new Date(new Date(createdAt).getTime() + 30 * 24 * 60 * 60 * 1000);
-  const daysLeft = Math.max(0, Math.ceil((expiresAt.getTime() - Date.now()) / (24 * 60 * 60 * 1000)));
-  const expiresOn = expiresAt.toLocaleDateString('en-MY', { day: 'numeric', month: 'short', year: 'numeric' });
+function getExpiryInfo(expiresAt: string): { daysLeft: number; expiresOn: string } {
+  const exp = new Date(expiresAt);
+  const daysLeft = Math.max(0, Math.ceil((exp.getTime() - Date.now()) / (24 * 60 * 60 * 1000)));
+  const expiresOn = exp.toLocaleDateString('en-MY', { day: 'numeric', month: 'short', year: 'numeric' });
   return { daysLeft, expiresOn };
 }
 
-export default function NavBar({ activeTab, onTabChange, members = [], nickname, sessionCreatedAt }: NavBarProps) {
+export default function NavBar({ activeTab, onTabChange, members = [], nickname, sessionExpiresAt }: NavBarProps) {
   const [copied, setCopied] = useState(false);
   const [showShare, setShowShare] = useState(false);
   const [showExpiry, setShowExpiry] = useState(false);
@@ -54,7 +54,7 @@ export default function NavBar({ activeTab, onTabChange, members = [], nickname,
   };
 
   const onlineMembers = members.filter(m => isOnline(m.lastSeen));
-  const expiry = sessionCreatedAt ? getExpiryInfo(sessionCreatedAt) : null;
+  const expiry = sessionExpiresAt ? getExpiryInfo(sessionExpiresAt) : null;
 
   return (
     <header

@@ -2,7 +2,7 @@ import os
 import uuid
 import asyncio
 import logging
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 
 import httpx
 from fastapi import APIRouter, HTTPException, Request
@@ -44,7 +44,12 @@ async def scrape_property(request: Request, body: ScrapeRequest) -> ScrapeRespon
     # Upsert session — creates it if the user navigated directly to a hunt URL
     await sessions_col().update_one(
         {"_id": body.sessionId},
-        {"$setOnInsert": {"createdAt": datetime.now(timezone.utc), "properties": []}},
+        {"$setOnInsert": {
+            "createdAt": datetime.now(timezone.utc),
+            "expiresAt": datetime.now(timezone.utc) + timedelta(days=30),
+            "extensionCount": 0,
+            "properties": [],
+        }},
         upsert=True,
     )
     doc = await sessions_col().find_one({"_id": body.sessionId}, {"properties": 1}) or {}

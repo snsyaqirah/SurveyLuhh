@@ -90,4 +90,20 @@ export async function saveBracketResult(
   }).catch(() => {});
 }
 
+export async function extendSession(
+  sessionId: string,
+  days: 7 | 30,
+): Promise<{ expiresAt: string; extensionCount: number }> {
+  const res = await fetch(`${API_BASE}/api/sessions/${sessionId}/extend`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ days }),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error((err as { detail?: string }).detail ?? 'Failed to extend session');
+  }
+  return res.json();
+}
+
 export { type Property };

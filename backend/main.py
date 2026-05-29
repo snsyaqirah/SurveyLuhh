@@ -38,29 +38,28 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
         return response
 
 
-TTL_SECONDS = 2592000  # 30 days
-
-
 async def _ensure_sessions_ttl():
     from services.db import sessions_col
     col = sessions_col()
     try:
         info = await col.index_information()
+
+        # Drop legacy createdAt TTL index if present
         for name, idx in info.items():
             fields = [f for f, _ in idx.get("key", [])]
-            if fields == ["createdAt"]:
-                if idx.get("expireAfterSeconds") == TTL_SECONDS:
-                    return  # already correct
-                # Update TTL on the existing index via collMod
-                await col.database.command(
-                    "collMod", col.name,
-                    index={"name": name, "expireAfterSeconds": TTL_SECONDS},
-                )
-                logger.info("Updated sessions TTL index to %ds", TTL_SECONDS)
-                return
-        # No createdAt index yet — create it
-        await col.create_index("createdAt", expireAfterSeconds=TTL_SECONDS)
-        logger.info("Created sessions TTL index (%ds)", TTL_SECONDS)
+            if fields == ["createdAt"] and "expireAfterSeconds" in idx:
+                await col.drop_index(name)
+                logger.info("Dropped legacy createdAt TTL index")
+                break
+
+        # Ensure expiresAt TTL index (expireAfterSeconds=0 means delete when field < now)
+        info = await col.index_information()
+        for idx in info.values():
+            fields = [f for f, _ in idx.get("key", [])]
+            if fields == ["expiresAt"] and idx.get("expireAfterSeconds") == 0:
+                return  # already correct
+        await col.create_index("expiresAt", expireAfterSeconds=0, sparse=True)
+        logger.info("Created sessions TTL index on expiresAt")
     except Exception as exc:
         logger.warning("TTL index setup failed: %s", exc)
 

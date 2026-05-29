@@ -7,6 +7,7 @@ import HomeTab from '@/components/hunt/HomeTab';
 import PropertiesTab from '@/components/hunt/PropertiesTab';
 import InsightTab from '@/components/hunt/InsightTab';
 import NicknameModal from '@/components/hunt/NicknameModal';
+import ExtendBanner from '@/components/hunt/ExtendBanner';
 import { getSession, updatePropertyStatus as apiUpdateStatus, deleteProperty as apiDeleteProperty, registerMember } from '@/lib/api';
 import type { Property, Member, BracketResult } from '@/lib/types';
 
@@ -26,6 +27,8 @@ export default function HuntPage() {
   const [memberToken, setMemberToken] = useState<string | null>(null);
   const [showNicknameModal, setShowNicknameModal] = useState(false);
   const [sessionCreatedAt, setSessionCreatedAt] = useState<string | null>(null);
+  const [sessionExpiresAt, setSessionExpiresAt] = useState<string | null>(null);
+  const [extensionCount, setExtensionCount] = useState(0);
 
   useEffect(() => {
     const saved = localStorage.getItem(nicknameKey(sessionId));
@@ -49,6 +52,8 @@ export default function HuntPage() {
       setMembers(session.members ?? []);
       setBracketResults(session.bracketResults ?? []);
       setSessionCreatedAt(session.createdAt);
+      if (session.expiresAt) setSessionExpiresAt(session.expiresAt);
+      if (session.extensionCount !== undefined) setExtensionCount(session.extensionCount);
     } catch {
       // Session not found — start fresh
     } finally {
@@ -140,8 +145,19 @@ export default function HuntPage() {
         propertyCount={properties.length}
         members={members}
         nickname={nickname}
-        sessionCreatedAt={sessionCreatedAt}
+        sessionExpiresAt={sessionExpiresAt ?? (sessionCreatedAt ? new Date(new Date(sessionCreatedAt).getTime() + 30 * 24 * 60 * 60 * 1000).toISOString() : null)}
       />
+      {sessionExpiresAt && (
+        <ExtendBanner
+          sessionId={sessionId}
+          expiresAt={sessionExpiresAt}
+          extensionCount={extensionCount}
+          onExtended={(newExpiresAt, newCount) => {
+            setSessionExpiresAt(newExpiresAt);
+            setExtensionCount(newCount);
+          }}
+        />
+      )}
       <main id="app-main" className="flex-1 overflow-hidden">
         {activeTab === 'home' && (
           <HomeTab sessionId={sessionId} nickname={nickname ?? ''} onPropertyAdded={addProperty} />

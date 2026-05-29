@@ -2,13 +2,20 @@ import hashlib
 import os
 import uuid
 import logging
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 
 from fastapi import APIRouter, HTTPException, Request, Header
+from pydantic import BaseModel
 
 from limiter import limiter
 from models.property import Session, Property, StatusUpdateRequest, MemberRequest, BracketResultRequest
 from services.db import sessions_col
+
+SESSION_TTL_DAYS = 30
+
+
+class ExtendRequest(BaseModel):
+    days: int  # 7 or 30
 
 logger = logging.getLogger(__name__)
 
@@ -19,9 +26,12 @@ router = APIRouter(prefix="/api/sessions", tags=["sessions"])
 @limiter.limit("10/minute")
 async def create_session(request: Request) -> dict:
     session_id = str(uuid.uuid4())
+    now = datetime.now(timezone.utc)
     doc = {
         "_id": session_id,
-        "createdAt": datetime.now(timezone.utc),
+        "createdAt": now,
+        "expiresAt": now + timedelta(days=SESSION_TTL_DAYS),
+        "extensionCount": 0,
         "properties": [],
         "members": [],
         "bracketResults": [],
@@ -39,6 +49,7 @@ async def get_session(session_id: str) -> Session:
     doc.setdefault("members", [])
     doc.setdefault("bracketResults", [])
     doc.setdefault("createdAt", datetime.now(timezone.utc))
+    doc.setdefault("extensionCount", 0)
 
     valid_props = []
     for raw in doc.get("properties", []):
@@ -135,12 +146,50 @@ async def save_bracket_result(request: Request, session_id: str, body: BracketRe
 
 
 @router.post("/{session_id}/extend", status_code=200)
-async def extend_session(session_id: str, authorization: str = Header(...)) -> dict:
+@limiter.limit("10/hour")
+async def extend_session(request: Request, session_id: str, body: ExtendRequest) -> dict:
+    if body.days not in (7, 30):
+        raise HTTPException(status_code=400, detail="days must be 7 or 30")
+
+    session = await sessions_col().find_one(
+        {"_id": session_id}, {"expiresAt": 1, "extensionCount": 1}
+    )
+    if not session:
+        raise HTTPException(status_code=404, detail="Session not found")
+
+    extension_count = session.get("extensionCount", 0)
+    if extension_count >= 3:
+        raise HTTPException(status_code=400, detail="Maximum extensions (3) reached")
+
+    expires_at = session.get("expiresAt")
+    if not expires_at:
+        raise HTTPException(status_code=400, detail="Session has no expiry date set")
+
+    now = datetime.now(timezone.utc)
+    if expires_at.tzinfo is None:
+        expires_at = expires_at.replace(tzinfo=timezone.utc)
+    days_left = (expires_at - now).total_seconds() / 86400
+    if days_left > 7:
+        raise HTTPException(status_code=400, detail="Extensions available only in the last 7 days")
+
+    new_expires_at = expires_at + timedelta(days=body.days)
+    new_count = extension_count + 1
+
+    await sessions_col().update_one(
+        {"_id": session_id},
+        {"$set": {"expiresAt": new_expires_at, "extensionCount": new_count}},
+    )
+    return {"ok": True, "expiresAt": new_expires_at.isoformat(), "extensionCount": new_count}
+
+
+@router.post("/{session_id}/extend-admin", status_code=200)
+async def extend_session_admin(session_id: str, authorization: str = Header(...)) -> dict:
     if authorization != f"Bearer {os.environ.get('ADMIN_TOKEN', '')}":
         raise HTTPException(status_code=403, detail="Forbidden")
+    now = datetime.now(timezone.utc)
     result = await sessions_col().update_one(
         {"_id": session_id},
-        {"$set": {"createdAt": datetime.now(timezone.utc)}},
+        {"$set": {"expiresAt": now + timedelta(days=SESSION_TTL_DAYS), "extensionCount": 0}},
     )
     if result.matched_count == 0:
         raise HTTPException(status_code=404, detail="Session not found")
