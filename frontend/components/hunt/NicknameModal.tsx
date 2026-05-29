@@ -99,7 +99,7 @@ export default function NicknameModal({ onConfirm, existingMembers = [] }: Nickn
               className="mt-0.5 shrink-0 accent-[#265CE4]"
             />
             <span className="text-xs leading-relaxed" style={{ color: '#5A6280' }}>
-              Your nickname and session activity are stored for 7 days, then auto-deleted.{' '}
+              Your nickname and session activity are stored for 30 days, then auto-deleted.{' '}
               <Link href="/privacy" target="_blank" style={{ color: '#265CE4' }}>
                 Privacy Policy
               </Link>

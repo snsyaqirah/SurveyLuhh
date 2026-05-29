@@ -57,7 +57,7 @@ export default function PrivacyPage() {
           <Section title="2. Why we collect it">
             <ul className="list-disc list-inside space-y-1 pl-1">
               <li><strong>Nickname + activity</strong> — so everyone in a shared session can see who added which property and how people voted.</li>
-              <li><strong>Timestamps</strong> — to show who is currently online and to automatically delete sessions after 7 days.</li>
+              <li><strong>Timestamps</strong> — to show who is currently online and to automatically delete sessions after 30 days.</li>
               <li><strong>Feedback</strong> — so we can read and respond to bug reports and suggestions.</li>
               <li><strong>Agent data</strong> — so you can contact the property agent directly from the app without going back to the listing site.</li>
             </ul>
@@ -65,7 +65,7 @@ export default function PrivacyPage() {
 
           <Section title="3. How long we keep it">
             <ul className="list-disc list-inside space-y-1 pl-1">
-              <li><strong>Session data</strong> (nickname, properties, votes) — automatically deleted after <strong>7 days</strong> via a database TTL index. You cannot extend this.</li>
+              <li><strong>Session data</strong> (nickname, properties, votes) — automatically deleted after <strong>30 days</strong> via a database TTL index. You cannot extend this.</li>
               <li><strong>Feedback messages</strong> — kept indefinitely so we can refer back to them. We aim to review and clean these periodically.</li>
             </ul>
           </Section>
@@ -95,7 +95,7 @@ export default function PrivacyPage() {
             <p>You have the right to:</p>
             <ul className="list-disc list-inside space-y-1 pl-1">
               <li><strong>Access</strong> your data — your session data is visible to you (and anyone with your session link) at any time while the session is active.</li>
-              <li><strong>Delete</strong> your data — session data auto-deletes after 7 days. If you want it deleted sooner, email us and we will remove it manually.</li>
+              <li><strong>Delete</strong> your data — session data auto-deletes after 30 days. If you want it deleted sooner, email us and we will remove it manually.</li>
               <li><strong>Correct</strong> your data — if your nickname is wrong, you can re-join the session with the correct name.</li>
               <li><strong>Object</strong> — if you do not agree to your nickname being stored, do not enter one. Without a nickname you cannot participate in a shared session, but you can still view shared links.</li>
             </ul>

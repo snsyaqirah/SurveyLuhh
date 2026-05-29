@@ -1,9 +1,10 @@
 import hashlib
+import os
 import uuid
 import logging
 from datetime import datetime, timezone
 
-from fastapi import APIRouter, HTTPException, Request
+from fastapi import APIRouter, HTTPException, Request, Header
 
 from limiter import limiter
 from models.property import Session, Property, StatusUpdateRequest, MemberRequest, BracketResultRequest
@@ -89,7 +90,7 @@ async def register_member(request: Request, session_id: str, body: MemberRequest
         {"$set": {"members.$.lastSeen": now, "members.$.tokenHash": token_hash}},
     )
     if result.matched_count == 0:
-        await sessions_col().update_one(
+        result2 = await sessions_col().update_one(
             {"_id": session_id},
             {"$push": {"members": {
                 "nickname": body.nickname,
@@ -97,8 +98,9 @@ async def register_member(request: Request, session_id: str, body: MemberRequest
                 "consentGivenAt": now,
                 "tokenHash": token_hash,
             }}},
-            upsert=True,
         )
+        if result2.matched_count == 0:
+            raise HTTPException(status_code=404, detail="Session not found")
     return {"ok": True, "memberToken": member_token}
 
 
@@ -128,6 +130,18 @@ async def save_bracket_result(request: Request, session_id: str, body: BracketRe
     await sessions_col().update_one(
         {"_id": session_id},
         {"$push": {"bracketResults": {"nickname": body.nickname, "winnerId": body.winnerId}}},
-        upsert=True,
     )
+    return {"ok": True}
+
+
+@router.post("/{session_id}/extend", status_code=200)
+async def extend_session(session_id: str, authorization: str = Header(...)) -> dict:
+    if authorization != f"Bearer {os.environ.get('ADMIN_TOKEN', '')}":
+        raise HTTPException(status_code=403, detail="Forbidden")
+    result = await sessions_col().update_one(
+        {"_id": session_id},
+        {"$set": {"createdAt": datetime.now(timezone.utc)}},
+    )
+    if result.matched_count == 0:
+        raise HTTPException(status_code=404, detail="Session not found")
     return {"ok": True}

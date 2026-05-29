@@ -38,7 +38,7 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
         return response
 
 
-TTL_SECONDS = 604800  # 7 days
+TTL_SECONDS = 2592000  # 30 days
 
 
 async def _ensure_sessions_ttl():

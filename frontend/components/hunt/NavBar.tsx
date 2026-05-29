@@ -36,7 +36,7 @@ function isOnline(lastSeen: string): boolean {
 }
 
 function getExpiryInfo(createdAt: string): { daysLeft: number; expiresOn: string } {
-  const expiresAt = new Date(new Date(createdAt).getTime() + 7 * 24 * 60 * 60 * 1000);
+  const expiresAt = new Date(new Date(createdAt).getTime() + 30 * 24 * 60 * 60 * 1000);
   const daysLeft = Math.max(0, Math.ceil((expiresAt.getTime() - Date.now()) / (24 * 60 * 60 * 1000)));
   const expiresOn = expiresAt.toLocaleDateString('en-MY', { day: 'numeric', month: 'short', year: 'numeric' });
   return { daysLeft, expiresOn };
@@ -107,7 +107,7 @@ export default function NavBar({ activeTab, onTabChange, members = [], nickname,
               onClick={() => setShowExpiry(v => !v)}
               className="flex items-center gap-1 px-2 py-1.5 rounded-lg text-[10px] sm:text-xs font-medium transition-colors"
               style={{
-                color: expiry.daysLeft <= 1 ? '#DC2626' : expiry.daysLeft <= 3 ? '#D97706' : '#9DA3B8',
+                color: expiry.daysLeft <= 3 ? '#DC2626' : expiry.daysLeft <= 7 ? '#D97706' : '#9DA3B8',
                 border: '1px solid #E2DFF0',
                 background: showExpiry ? '#F3F0FF' : '#FFFFFF',
                 minHeight: '36px',
