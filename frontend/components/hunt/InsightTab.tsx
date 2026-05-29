@@ -129,6 +129,8 @@ function PropertyRow({
   isBye: boolean;
   onClick?: () => void;
 }) {
+  const [showTooltip, setShowTooltip] = useState(false);
+
   if (isBye) {
     return (
       <div className="px-3 py-2 text-xs italic" style={{ color: '#C2C8D8' }}>BYE</div>
@@ -139,44 +141,73 @@ function PropertyRow({
       <div className="px-3 py-2 text-xs" style={{ color: '#C2C8D8' }}>TBD</div>
     );
   }
+
+  const { bedrooms, bathrooms, sqft } = prop.details ?? {};
+  const tooltipParts = [
+    bedrooms  ? `${bedrooms} bed`  : null,
+    bathrooms ? `${bathrooms} bath` : null,
+    sqft && sqft !== '0' ? sqft : null,
+  ].filter(Boolean);
+
   return (
-    <button
-      onClick={onClick}
-      disabled={!isPending}
-      className="w-full flex items-center gap-2 px-3 py-2 text-left transition-all disabled:cursor-default"
-      style={{
-        background: isWinner ? '#EBF0FE' : 'transparent',
-        opacity: isLoser ? 0.4 : 1,
-      }}
-      onMouseEnter={e => {
-        if (isPending) (e.currentTarget as HTMLButtonElement).style.background = '#F3F0FF';
-      }}
-      onMouseLeave={e => {
-        if (isPending) (e.currentTarget as HTMLButtonElement).style.background = 'transparent';
-      }}
+    <div
+      className="relative"
+      onMouseEnter={() => setShowTooltip(true)}
+      onMouseLeave={() => setShowTooltip(false)}
     >
-      {prop.images[0] ? (
-        // eslint-disable-next-line @next/next/no-img-element
-        <img src={prop.images[0]} alt="" className="w-8 h-8 rounded object-cover shrink-0" />
-      ) : (
-        <div className="w-8 h-8 rounded shrink-0 flex items-center justify-center" style={{ background: '#F3F0FF' }}>
-          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="#C2C8D8" strokeWidth={1.5}>
-            <path strokeLinecap="round" strokeLinejoin="round" d="M3 9.75L12 3l9 6.75V21H3V9.75z" />
+      <button
+        onClick={onClick}
+        disabled={!isPending}
+        className="w-full flex items-center gap-2 px-3 py-2 text-left transition-all disabled:cursor-default"
+        style={{
+          background: isWinner ? '#EBF0FE' : 'transparent',
+          opacity: isLoser ? 0.4 : 1,
+        }}
+        onMouseEnter={e => {
+          if (isPending) (e.currentTarget as HTMLButtonElement).style.background = '#F3F0FF';
+        }}
+        onMouseLeave={e => {
+          if (isPending) (e.currentTarget as HTMLButtonElement).style.background = isWinner ? '#EBF0FE' : 'transparent';
+        }}
+      >
+        {prop.images[0] ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img src={prop.images[0]} alt="" className="w-8 h-8 rounded object-cover shrink-0" />
+        ) : (
+          <div className="w-8 h-8 rounded shrink-0 flex items-center justify-center" style={{ background: '#F3F0FF' }}>
+            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="#C2C8D8" strokeWidth={1.5}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M3 9.75L12 3l9 6.75V21H3V9.75z" />
+            </svg>
+          </div>
+        )}
+        <div className="flex-1 min-w-0">
+          <p className="text-xs font-medium leading-tight line-clamp-1" style={{ color: isWinner ? '#265CE4' : '#282F41' }}>
+            {prop.title}
+          </p>
+          <p className="text-[10px] font-semibold mt-0.5" style={{ color: '#265CE4' }}>
+            {prop.price}
+          </p>
+        </div>
+        {isWinner && (
+          <svg className="w-4 h-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="#265CE4" strokeWidth={2.5}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
           </svg>
+        )}
+        {isPending && (
+          <span className="text-[10px] shrink-0 px-1.5 py-0.5 rounded font-semibold" style={{ background: '#265CE4', color: '#fff' }}>Pick</span>
+        )}
+      </button>
+
+      {showTooltip && tooltipParts.length > 0 && (
+        <div
+          className="absolute left-full top-1/2 -translate-y-1/2 ml-2 z-50 rounded-lg px-2.5 py-1.5 text-[11px] whitespace-nowrap pointer-events-none"
+          style={{ background: '#282F41', color: '#fff', boxShadow: '0 4px 12px rgba(0,0,0,0.2)' }}
+        >
+          {tooltipParts.join(' · ')}
+          <div className="absolute right-full top-1/2 -translate-y-1/2 border-4 border-transparent" style={{ borderRightColor: '#282F41' }} />
         </div>
       )}
-      <span className="text-xs font-medium leading-tight line-clamp-2 flex-1 min-w-0" style={{ color: isWinner ? '#265CE4' : '#282F41' }}>
-        {prop.title}
-      </span>
-      {isWinner && (
-        <svg className="w-4 h-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="#265CE4" strokeWidth={2.5}>
-          <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
-        </svg>
-      )}
-      {isPending && (
-        <span className="text-[10px] shrink-0 px-1.5 py-0.5 rounded font-semibold" style={{ background: '#265CE4', color: '#fff' }}>Pick</span>
-      )}
-    </button>
+    </div>
   );
 }
 
@@ -199,7 +230,7 @@ function MatchCard({ match, properties, isCurrentRound, onPick, roundDone }: Mat
 
   return (
     <div
-      className="rounded-xl overflow-hidden"
+      className="rounded-xl"
       style={{
         background: '#FFFFFF',
         border: `1.5px solid ${borderColor}`,
@@ -210,7 +241,7 @@ function MatchCard({ match, properties, isCurrentRound, onPick, roundDone }: Mat
       }}
     >
       {isCurrentRound && !match.winnerId && (
-        <div className="px-3 py-1 text-[10px] font-semibold uppercase tracking-wide" style={{ background: '#265CE4', color: '#fff' }}>
+        <div className="px-3 py-1 text-[10px] font-semibold uppercase tracking-wide rounded-t-xl" style={{ background: '#265CE4', color: '#fff' }}>
           Pick your winner
         </div>
       )}
