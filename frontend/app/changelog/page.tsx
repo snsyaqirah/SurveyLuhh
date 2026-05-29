@@ -14,9 +14,20 @@ interface Version {
 
 const VERSIONS: Version[] = [
   {
+    version: '0.7.0',
+    date: '2026-05-29',
+    label: 'Latest',
+    changes: [
+      { type: 'feat',        text: 'Session extension — request +1 week or +1 month in the last 7 days before expiry, up to 3 times per session' },
+      { type: 'improvement', text: 'Session lifetime extended from 7 days to 30 days' },
+      { type: 'improvement', text: 'Session TTL now uses a dedicated expiresAt field so extensions are tracked accurately' },
+      { type: 'fix',         text: 'CORS policy on backend now strips trailing slashes from allowed origins — fixed broken requests from Vercel' },
+      { type: 'fix',         text: 'Content Security Policy updated to allow connections to the backend on Render' },
+    ],
+  },
+  {
     version: '0.6.0',
     date: '2026-05-19',
-    label: 'Latest',
     changes: [
       { type: 'improvement', text: 'Rate limiting added to all public endpoints — scrape, session creation, member join, bracket votes, and feedback submit' },
       { type: 'improvement', text: 'Pre-launch security review — all 19 checks passed before going live' },
