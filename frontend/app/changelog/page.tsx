@@ -14,9 +14,17 @@ interface Version {
 
 const VERSIONS: Version[] = [
   {
-    version: '0.7.0',
+    version: '0.7.1',
     date: '2026-05-29',
     label: 'Latest',
+    changes: [
+      { type: 'improvement', text: 'Bracket cards now show price at a glance — no more guessing which listing costs what mid-tournament' },
+      { type: 'improvement', text: 'Hover over a bracket card to see beds, bathrooms, and sqft in a quick tooltip' },
+    ],
+  },
+  {
+    version: '0.7.0',
+    date: '2026-05-29',
     changes: [
       { type: 'feat',        text: 'Session extension — request +1 week or +1 month in the last 7 days before expiry, up to 3 times per session' },
       { type: 'improvement', text: 'Session lifetime extended from 7 days to 30 days' },
